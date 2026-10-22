@@ -90,6 +90,14 @@ export async function listLiveSalons(query: SalonQuery = {}) {
   })
 }
 
+export async function areaServicePrices(citySlug: string, areaSlug: string) {
+  const rows = await prisma.service.findMany({
+    where: { salon: { ...publicSalonWhere(), citySlug, areaSlug } },
+    select: { priceInr: true },
+  })
+  return rows.map((row) => row.priceInr)
+}
+
 export async function countLiveByArea(citySlug: string) {
   const rows = await prisma.salon.groupBy({
     by: ["areaSlug"],

@@ -40,7 +40,7 @@ export function MobileNav({
             Browse
           </Link>
           <Link className="rounded-lg px-1 py-3" href="/for-salons">
-            List your salon
+            List your salon free
           </Link>
           {user?.role === "ADMIN" ? (
             <Link className="rounded-lg px-1 py-3" href="/admin">
@@ -68,10 +68,10 @@ export function MobileNav({
           </form>
         ) : (
           <Link
-            href="/signup"
+            href="/for-salons"
             className="inline-flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground"
           >
-            Create a free listing
+            List your salon free
           </Link>
         )}
       </DialogContent>

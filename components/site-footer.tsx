@@ -5,7 +5,6 @@ import { siteName } from "@/lib/site"
 export async function SiteFooter() {
   const cities = await listActiveCities()
   const name = siteName()
-  const featured = cities[0]?.localities.slice(0, 6) ?? []
   return (
     <footer className="mt-auto border-t border-border">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3">
@@ -17,36 +16,32 @@ export async function SiteFooter() {
           </p>
         </div>
         <div>
-          <p className="text-sm font-medium">{cities.length > 1 ? "Cities" : "Localities"}</p>
-          <ul className="mt-2 grid grid-cols-2 gap-y-1 text-sm text-muted-foreground">
-            {cities.length > 1
-              ? cities.map((city) => (
-                  <li key={city.slug}>
-                    <Link href={`/${city.slug}`} className="hover:text-foreground">
-                      {city.name}
-                    </Link>
-                  </li>
-                ))
-              : featured.map((area) => (
-                  <li key={area.slug}>
-                    <Link href={`/${cities[0].slug}/${area.slug}`} className="hover:text-foreground">
-                      {area.name}
-                    </Link>
-                  </li>
-                ))}
-          </ul>
+          <p className="text-sm font-medium">Cities</p>
+          {cities.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">Cities show up here as they open.</p>
+          ) : (
+            <ul className="mt-2 grid gap-y-1 text-sm text-muted-foreground">
+              {cities.map((city) => (
+                <li key={city.slug}>
+                  <Link href={`/${city.slug}`} className="hover:text-foreground">
+                    {city.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="text-sm">
           <p className="font-medium">Owners</p>
           <ul className="mt-2 grid gap-1 text-muted-foreground">
             <li>
               <Link href="/for-salons" className="hover:text-foreground">
-                Early partner program
+                List your salon free
               </Link>
             </li>
             <li>
               <Link href="/signup" className="hover:text-foreground">
-                Create a listing
+                Create an account
               </Link>
             </li>
             <li>

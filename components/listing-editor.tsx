@@ -146,7 +146,7 @@ export function ListingEditor({
                 inputMode="tel"
                 autoComplete="tel"
                 defaultValue={salon?.whatsapp ?? ""}
-                placeholder="98XXXXXXXX"
+                placeholder="Mobile number"
                 className="h-12 px-3 text-base md:text-base"
               />
             </div>
@@ -164,11 +164,14 @@ export function ListingEditor({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="description">About the salon</Label>
+            <p className="text-sm text-muted-foreground">
+              Mention your speciality, the brands you use, and whether customers can park nearby.
+            </p>
             <Textarea
               id="description"
               name="description"
               defaultValue={salon?.description ?? ""}
-              placeholder="What you're known for, in a few sentences."
+              placeholder="Colour specialist. We use L'Oréal and Schwarzkopf. Street parking on the lane outside."
               className="min-h-28 text-base md:text-base"
             />
           </div>
@@ -178,7 +181,15 @@ export function ListingEditor({
 
       {salon ? (
         <>
-          <Section title="Photos" hint="Up to 8. The first one is the cover on search results. JPG, PNG, or WebP, under 5 MB.">
+          <Section
+            title="Photos"
+            hint="Add at least 3 photos — the chairs, the street outside, and the work. Up to 8. The first one is the cover. JPG, PNG, or WebP, under 5 MB."
+          >
+            {salon.photos.length < 3 ? (
+              <p className="mb-3 text-sm font-medium text-primary">
+                {salon.photos.length} of 3 photos so far. Add {3 - salon.photos.length} more.
+              </p>
+            ) : null}
             {salon.photos.length ? (
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {salon.photos.map((photo, index) => (
@@ -207,7 +218,7 @@ export function ListingEditor({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">No photos yet. Listings with a photo get more enquiries.</p>
+              <p className="text-sm text-muted-foreground">No photos yet. Three photos is the number to aim for.</p>
             )}
             <form action={uploadPhotos} className="mt-4 grid gap-3">
               <Label htmlFor="photos">Upload photos</Label>
@@ -380,7 +391,11 @@ export function ListingEditor({
                   ? `${salon.services.length} service${salon.services.length === 1 ? "" : "s"} listed`
                   : "At least one service still needed"}
               </li>
-              <li>{salon.photos.length ? `${salon.photos.length} photo${salon.photos.length === 1 ? "" : "s"}` : "Photos are optional, and they help"}</li>
+              <li>
+                {salon.photos.length >= 3
+                  ? `${salon.photos.length} photos`
+                  : `Add at least 3 photos (${salon.photos.length} so far)`}
+              </li>
             </ul>
             {salon.status === "LIVE" ? (
               <p className="text-sm">

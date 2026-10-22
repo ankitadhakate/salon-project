@@ -77,7 +77,7 @@ export default async function HomePage() {
             <SearchForm cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))} />
           </div>
           {primary ? (
-            <ul className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            <ul className="mt-4 hidden gap-2 overflow-x-auto pb-1 sm:flex">
               {quickServices.map((service) => (
                 <li key={service.slug}>
                   <Link
@@ -93,12 +93,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-8">
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
         <div className="mb-4 flex items-end justify-between gap-3">
-          <h2 className="font-heading text-3xl">Salons on {name}</h2>
-          {primary && salons.length > preview.length ? (
+          <h2 className="font-heading text-3xl">Featured salons</h2>
+          {primary && salons.length > 0 ? (
             <Link href={`/${primary.slug}`} className="text-sm font-medium text-primary">
-              See all {salons.length}
+              See all
             </Link>
           ) : null}
         </div>
@@ -109,36 +109,66 @@ export default async function HomePage() {
               Owners add themselves. If you run a salon, the early partner page is free.
             </p>
             <Link href="/for-salons" className={cn(buttonVariants(), "mt-4 h-11 px-4")}>
-              List your salon
+              List your salon free
             </Link>
           </div>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {preview.map((salon) => (
-              <SalonCard key={salon.id} salon={salon} />
-            ))}
-          </ul>
+          <>
+            <ul className="grid gap-4 sm:hidden">
+              {preview.slice(0, 4).map((salon) => (
+                <SalonCard key={salon.id} salon={salon} />
+              ))}
+            </ul>
+            <ul className="hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3">
+              {preview.map((salon) => (
+                <SalonCard key={salon.id} salon={salon} />
+              ))}
+            </ul>
+          </>
         )}
       </section>
 
       {cities.map((city) => {
         const counts = countsByCity.get(city.slug) ?? new Map()
+        const withListings = [...city.localities].sort(
+          (a, b) => (counts.get(b.slug) ?? 0) - (counts.get(a.slug) ?? 0),
+        )
+        const mobileAreas = withListings.filter((area) => (counts.get(area.slug) ?? 0) > 0).slice(0, 6)
+        const areaChips = mobileAreas.length > 0 ? mobileAreas : city.localities.slice(0, 6)
         return (
-        <section key={city.slug} className="mx-auto max-w-6xl px-4 py-4 pb-12">
-          <h2 className="font-heading text-3xl">Localities in {city.name}</h2>
-          <p className="mt-2 mb-4 max-w-xl text-sm text-muted-foreground">
-            {city.localities.length} localities on the {city.name} list.
-          </p>
-          <AreaGrid
-            citySlug={city.slug}
-            localities={city.localities}
-            counts={counts}
-          />
-        </section>
+          <section key={city.slug} className="mx-auto max-w-6xl px-4 py-4 pb-10 sm:pb-12">
+            <div className="sm:hidden">
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <h2 className="font-heading text-3xl">Areas</h2>
+                <Link href={`/${city.slug}`} className="text-sm font-medium text-primary">
+                  All areas
+                </Link>
+              </div>
+              <ul className="flex flex-wrap gap-2">
+                {areaChips.map((area) => (
+                  <li key={area.slug}>
+                    <Link
+                      href={`/${city.slug}/${area.slug}`}
+                      className="inline-flex h-9 items-center rounded-full border border-border bg-card px-3 text-sm"
+                    >
+                      {area.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="hidden sm:block">
+              <h2 className="font-heading text-3xl">Localities in {city.name}</h2>
+              <p className="mt-2 mb-4 max-w-xl text-sm text-muted-foreground">
+                {city.localities.length} localities on the {city.name} list.
+              </p>
+              <AreaGrid citySlug={city.slug} localities={city.localities} counts={counts} />
+            </div>
+          </section>
         )
       })}
 
-      <section className="border-t border-border bg-card">
+      <section className="hidden border-t border-border bg-card sm:block">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-3">
           {[
             ["Pick a city and a locality", "Start with the cities on the list. Each one has its own neighbourhoods."],

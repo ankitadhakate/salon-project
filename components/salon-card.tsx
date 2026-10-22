@@ -1,14 +1,15 @@
 import Link from "next/link"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
+import { SalonFallback } from "@/components/salon-fallback"
 import { genderLabel, inr } from "@/lib/format"
 import type { SalonCard as SalonCardData } from "@/lib/salons"
 
-export function SalonCard({ salon }: { salon: SalonCardData }) {
+export function SalonCard({ salon, className }: { salon: SalonCardData; className?: string }) {
   const photo = salon.photos[0]
   const href = `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`
   const place = [salon.locality?.name, salon.city?.name].filter(Boolean).join(", ")
   return (
-    <li>
+    <li className={className}>
       <Link
         href={href}
         className="group flex h-full flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 transition hover:-translate-y-0.5 hover:ring-foreground/20"
@@ -23,9 +24,7 @@ export function SalonCard({ salon }: { salon: SalonCardData }) {
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="grid h-full place-items-center font-heading text-4xl text-muted-foreground">
-              {salon.name.slice(0, 1)}
-            </div>
+            <SalonFallback name={salon.name} place={place} />
           )}
           {salon.isDemo ? (
             <span className="absolute top-3 left-3">
@@ -34,16 +33,10 @@ export function SalonCard({ salon }: { salon: SalonCardData }) {
           ) : null}
         </div>
         <div className="flex flex-1 flex-col gap-2 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="font-heading text-xl leading-tight group-hover:text-primary">
-              {salon.name}
-            </h3>
-            {salon.startingPrice != null ? (
-              <p className="shrink-0 text-sm font-medium tabular-nums">
-                from {inr(salon.startingPrice)}
-              </p>
-            ) : null}
-          </div>
+          <h3 className="font-heading text-xl leading-tight group-hover:text-primary">{salon.name}</h3>
+          <p className="text-sm font-medium tabular-nums">
+            {salon.startingPrice != null ? `from ${inr(salon.startingPrice)}` : "Price list coming soon"}
+          </p>
           <p className="text-sm text-muted-foreground">
             {place || salon.areaSlug} · {genderLabel(salon.gender)}
           </p>

@@ -3,11 +3,13 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
+import { WhatsAppShare } from "@/components/whatsapp-share"
 import { buttonVariants } from "@/components/ui/button"
 import { parseFilters, type SearchParams } from "@/lib/filters"
+import { typicalPriceLabel } from "@/lib/format"
 import { directoryEligible, robotsFor } from "@/lib/indexing"
 import { getLocality, listActiveCities } from "@/lib/places"
-import { countRealSalons, listLiveSalons } from "@/lib/salons"
+import { areaServicePrices, countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
 import { cn } from "@/lib/utils"
 
@@ -36,11 +38,15 @@ export default async function LocalityPage({ params, searchParams }: Props) {
   const locality = await getLocality(citySlug, localitySlug)
   if (!locality) notFound()
   const filters = parseFilters(await searchParams)
-  const [salons, cities] = await Promise.all([
+  const [salons, cities, servicePrices] = await Promise.all([
     listLiveSalons({ citySlug, areaSlug: locality.slug, ...filters }),
     listActiveCities(),
+    areaServicePrices(citySlug, locality.slug),
   ])
   const city = locality.city
+  const priceRange = typicalPriceLabel(servicePrices)
+  const intro = locality.intro.trim()
+  const pageUrl = appUrl(`/${city.slug}/${locality.slug}`)
   const menu = cities.find((item) => item.slug === city.slug)
   const nearby = (menu?.localities ?? []).filter((area) => area.slug !== locality.slug).slice(0, 6)
   const jsonLd = {
@@ -79,13 +85,14 @@ export default async function LocalityPage({ params, searchParams }: Props) {
           <li className="text-foreground">{locality.name}</li>
         </ol>
       </nav>
-      <h1 className="mt-3 font-heading text-4xl sm:text-5xl">
-        Salons in {locality.name}
+      <h1 className="mt-3 font-heading text-4xl text-balance sm:text-5xl">
+        Salons in {locality.name}, {city.name}
       </h1>
-      <p className="mt-3 max-w-2xl text-muted-foreground">
-        {locality.intro.trim() ||
-          `Listings in ${locality.name}, ${city.name}, with prices set by the salon.`}
-      </p>
+      {priceRange ? <p className="mt-3 text-base font-medium">{priceRange}</p> : null}
+      {intro ? <p className="mt-3 max-w-2xl text-muted-foreground">{intro}</p> : null}
+      <div className="mt-4">
+        <WhatsAppShare message={`Salons in ${locality.name}, ${city.name}: ${pageUrl}`} />
+      </div>
       <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
         <SearchForm
           cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}

@@ -3,8 +3,11 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { ContactActions } from "@/components/contact-actions"
+import { SalonFallback } from "@/components/salon-fallback"
+import { WhatsAppShare } from "@/components/whatsapp-share"
 import { SERVICE_CATEGORIES, DAYS } from "@/lib/constants"
 import {
+  formatDay,
   formatDuration,
   formatPhone,
   formatTime,
@@ -63,6 +66,14 @@ export default async function SalonPage({ params }: Props) {
   const path = `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`
   const pageUrl = appUrl(path)
   const brand = siteName()
+  const priceUpdated = salon.services.reduce<Date | null>((latest, service) => {
+    if (!latest || service.updatedAt > latest) return service.updatedAt
+    return latest
+  }, null)
+  const shareMessage =
+    salon.startingPrice != null
+      ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}: ${pageUrl}`
+      : `${salon.name} in ${place}: ${pageUrl}`
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
@@ -90,7 +101,7 @@ export default async function SalonPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-28 lg:pb-12">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-36 lg:pb-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
@@ -144,8 +155,8 @@ export default async function SalonPage({ params }: Props) {
               ))}
             </div>
           ) : (
-            <div className="grid h-56 place-items-center rounded-2xl bg-muted font-heading text-5xl text-muted-foreground">
-              {salon.name.slice(0, 1)}
+            <div className="h-56 overflow-hidden rounded-2xl sm:h-80">
+              <SalonFallback name={salon.name} place={place} />
             </div>
           )}
 
@@ -156,7 +167,10 @@ export default async function SalonPage({ params }: Props) {
             <span className="text-sm font-medium">{open ? "Open now" : "Closed now"}</span>
           </div>
           <h1 className="mt-2 font-heading text-4xl text-balance sm:text-5xl">{salon.name}</h1>
-          <p className="mt-2 text-muted-foreground">
+          <div className="mt-3">
+            <WhatsAppShare message={shareMessage} />
+          </div>
+          <p className="mt-3 text-muted-foreground">
             {salon.address}
             <span className="block">{place}</span>
           </p>
@@ -195,6 +209,11 @@ export default async function SalonPage({ params }: Props) {
                 </section>
               ))
           )}
+          {priceUpdated ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Prices updated {formatDay(priceUpdated, timeZone)}
+            </p>
+          ) : null}
 
           <h2 className="mt-10 font-heading text-3xl">Opening hours</h2>
           <p className="mt-1 text-sm text-muted-foreground">{todayHoursLabel(salon.hours, timeZone)} · local time</p>
@@ -236,7 +255,7 @@ export default async function SalonPage({ params }: Props) {
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         <div className="mx-auto max-w-lg">
           <ContactActions
             name={salon.name}

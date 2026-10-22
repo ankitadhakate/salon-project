@@ -63,6 +63,25 @@ export function formatWhen(date: Date) {
   }).format(date)
 }
 
+export function formatDay(date: Date, timeZone = "Asia/Kolkata") {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone,
+  }).format(date)
+}
+
+/** Starting-price span for the salons on an area page. */
+export function typicalPriceLabel(prices: Array<number | null | undefined>) {
+  const values = prices.filter((price): price is number => typeof price === "number" && price > 0)
+  if (values.length === 0) return null
+  const low = Math.min(...values)
+  const high = Math.max(...values)
+  if (low === high) return `Typical price ${inr(low)}`
+  return `Typical prices from ${inr(low)} to ${inr(high)}`
+}
+
 type HourRow = {
   dayOfWeek: number
   closed: boolean
@@ -123,6 +142,10 @@ export function todayHoursLabel(hours: HourRow[], timeZone = "Asia/Kolkata", now
 export function whatsAppHref(phone: string, salonName: string, brand: string, dialCode = "91") {
   const text = `Hi, I found ${salonName} on ${brand} and I'd like to ask about a booking.`
   return `https://wa.me/${dialCode}${phone}?text=${encodeURIComponent(text)}`
+}
+
+export function whatsAppShareHref(message: string) {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`
 }
 
 export function mapsHref(address: string, place = "") {
