@@ -11,9 +11,10 @@ import {
   updateService,
   uploadPhotos,
 } from "@/app/dashboard/actions"
-import { areasAlphabetical, getArea } from "@/lib/areas"
+import { CityLocalityFields, type CityOption } from "@/components/city-locality-fields"
 import { DAYS, SERVICE_CATEGORIES } from "@/lib/constants"
 import type { SessionUser } from "@/lib/auth"
+import { siteName } from "@/lib/site"
 import { formatDuration, inr, statusLabel } from "@/lib/format"
 import type { OwnerSalon } from "@/lib/salons"
 import { Input } from "@/components/ui/input"
@@ -45,12 +46,14 @@ function Section({
 export function ListingEditor({
   salon,
   user,
+  cities,
 }: {
   salon: OwnerSalon | null
   user: SessionUser
+  cities: CityOption[]
 }) {
-  const areas = areasAlphabetical()
-  const publicPath = salon ? `/pune/${salon.areaSlug}/${salon.slug}` : ""
+  const publicPath = salon ? `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}` : ""
+  const brand = siteName()
   const ready =
     Boolean(salon?.name && salon.address && salon.whatsapp && salon.services.length > 0)
 
@@ -64,7 +67,7 @@ export function ListingEditor({
             {salon.status === "DRAFT" &&
               "Only you can see this. Submit when the price list and WhatsApp number are in."}
             {salon.status === "PENDING" &&
-              "With the Saj team for a quick check. You can still edit it."}
+              `With the ${brand} team for a quick check. You can still edit it.`}
             {salon.status === "LIVE" && "Customers can find this page. Edits show immediately."}
             {salon.status === "HIDDEN" &&
               "Hidden from search. Update it, then submit again when you want it reviewed."}
@@ -77,7 +80,7 @@ export function ListingEditor({
           </p>
           {salon.isEarlyPartner ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Early partner badge is on. It marks salons that joined during the free Pune launch.
+              Early partner badge is on. It marks salons that joined during the free launch.
             </p>
           ) : null}
           {salon.isDemo ? (
@@ -90,7 +93,7 @@ export function ListingEditor({
 
       <Section
         title={salon ? "Salon details" : "Start your listing"}
-        hint="Your name on Saj, the locality it should appear under, and how customers reach you."
+        hint={`Your name on ${brand}, the city and locality it should appear under, and how customers reach you.`}
       >
         <form action={saveProfile} className="grid gap-4">
           <div className="grid gap-1.5">
@@ -104,25 +107,11 @@ export function ListingEditor({
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="areaSlug">Locality</Label>
-              <select
-                id="areaSlug"
-                name="areaSlug"
-                required
-                defaultValue={salon?.areaSlug ?? ""}
-                className={control}
-              >
-                <option value="" disabled>
-                  Choose an area
-                </option>
-                {areas.map((area) => (
-                  <option key={area.slug} value={area.slug}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CityLocalityFields
+              cities={cities}
+              citySlug={salon?.citySlug}
+              areaSlug={salon?.areaSlug}
+            />
             <div className="grid gap-1.5">
               <Label htmlFor="gender">Who is it for?</Label>
               <select
@@ -144,7 +133,7 @@ export function ListingEditor({
               name="address"
               required
               defaultValue={salon?.address ?? ""}
-              placeholder="Shop number, street, Pune"
+              placeholder="Shop number, street"
               className="h-12 px-3 text-base md:text-base"
             />
           </div>
@@ -341,7 +330,7 @@ export function ListingEditor({
             </form>
           </Section>
 
-          <Section title="Opening hours" hint="Times are what customers in Pune should expect, in IST.">
+          <Section title="Opening hours" hint="Times are in the city's local time.">
             <form action={saveHours} className="grid gap-3">
               {DAYS.map((day, index) => {
                 const row = salon.hours.find((hour) => hour.dayOfWeek === index)
@@ -395,7 +384,8 @@ export function ListingEditor({
             </ul>
             {salon.status === "LIVE" ? (
               <p className="text-sm">
-                Live in {getArea(salon.areaSlug)?.name}.{" "}
+                Live in {salon.locality?.name ?? salon.areaSlug}
+                {salon.city?.name ? `, ${salon.city.name}` : ""}.{" "}
                 <Link href={publicPath} className="font-medium text-primary underline-offset-4 hover:underline">
                   Open the page
                 </Link>

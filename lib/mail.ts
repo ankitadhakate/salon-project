@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { siteName } from "@/lib/site"
 
 export function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST)
@@ -14,10 +15,11 @@ export async function sendSignInMail(to: string, url: string) {
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
       : undefined,
   })
+  const name = siteName()
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || "Saj <no-reply@saj.local>",
+    from: process.env.SMTP_FROM || `${name} <no-reply@localhost>`,
     to,
-    subject: "Your Saj sign-in link",
-    text: `Use this link to sign in to Saj. It expires in 30 minutes.\n\n${url}\n\nIf you didn't ask for this, ignore this email.`,
+    subject: `Your ${name} sign-in link`,
+    text: `Use this link to sign in to ${name}. It expires in 30 minutes.\n\n${url}\n\nIf you didn't ask for this, ignore this email.`,
   })
 }

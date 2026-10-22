@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { getSessionUser } from "@/lib/auth"
+import { siteName } from "@/lib/site"
 import { safeNextPath } from "@/lib/urls"
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default async function LoginPage({
   return (
     <div className="mx-auto w-full max-w-md px-4 py-10">
       <h1 className="font-heading text-4xl">Log in</h1>
-      <p className="mt-2 text-muted-foreground">For salon owners and the Saj review desk.</p>
+      <p className="mt-2 text-muted-foreground">For salon owners and the {siteName()} review desk.</p>
       <Flash error={sp.error?.slice(0, 200)} />
       <form action={login} className="mt-6 grid gap-4">
         {next ? <input type="hidden" name="next" value={next} /> : null}

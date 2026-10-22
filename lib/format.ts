@@ -48,9 +48,11 @@ export function formatTime(value: string) {
   return `${hour12}:${String(minute).padStart(2, "0")}${suffix}`
 }
 
-export function formatPhone(local: string) {
-  if (local.length !== 10) return local
-  return `+91 ${local.slice(0, 5)} ${local.slice(5)}`
+export function formatPhone(local: string, dialCode = "91") {
+  if (dialCode === "91" && local.length === 10) {
+    return `+91 ${local.slice(0, 5)} ${local.slice(5)}`
+  }
+  return `+${dialCode} ${local}`
 }
 
 export function formatWhen(date: Date) {
@@ -68,9 +70,9 @@ type HourRow = {
   closeTime: string
 }
 
-export function kolkataWeekdayIndex(now = new Date()) {
+export function weekdayIndex(timeZone = "Asia/Kolkata", now = new Date()) {
   const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
+    timeZone,
     weekday: "short",
   }).format(now)
   const map: Record<string, number> = {
@@ -91,9 +93,9 @@ function minutes(value: string) {
   return hour * 60 + minute
 }
 
-export function kolkataMinutes(now = new Date()) {
+export function clockMinutes(timeZone = "Asia/Kolkata", now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
+    timeZone,
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -103,26 +105,27 @@ export function kolkataMinutes(now = new Date()) {
   return hour * 60 + minute
 }
 
-export function isOpenNow(hours: HourRow[], now = new Date()) {
-  const row = hours.find((hour) => hour.dayOfWeek === kolkataWeekdayIndex(now))
+export function isOpenNow(hours: HourRow[], timeZone = "Asia/Kolkata", now = new Date()) {
+  const row = hours.find((hour) => hour.dayOfWeek === weekdayIndex(timeZone, now))
   if (!row || row.closed) return false
-  const current = kolkataMinutes(now)
+  const current = clockMinutes(timeZone, now)
   return current >= minutes(row.openTime) && current < minutes(row.closeTime)
 }
 
-export function todayHoursLabel(hours: HourRow[], now = new Date()) {
-  const index = kolkataWeekdayIndex(now)
+export function todayHoursLabel(hours: HourRow[], timeZone = "Asia/Kolkata", now = new Date()) {
+  const index = weekdayIndex(timeZone, now)
   const row = hours.find((hour) => hour.dayOfWeek === index)
   const day = DAYS[index] ?? "Today"
   if (!row || row.closed) return `${day}: closed`
   return `${day}: ${formatTime(row.openTime)} – ${formatTime(row.closeTime)}`
 }
 
-export function whatsAppHref(phone: string, salonName: string) {
-  const text = `Hi, I found ${salonName} on Saj and I'd like to ask about a booking.`
-  return `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
+export function whatsAppHref(phone: string, salonName: string, brand: string, dialCode = "91") {
+  const text = `Hi, I found ${salonName} on ${brand} and I'd like to ask about a booking.`
+  return `https://wa.me/${dialCode}${phone}?text=${encodeURIComponent(text)}`
 }
 
-export function mapsHref(address: string) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address}, Pune`)}`
+export function mapsHref(address: string, place = "") {
+  const query = place ? `${address}, ${place}` : address
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }

@@ -2,14 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// SQLite keeps local setup to one file. For Postgres, change the provider
-// and create a fresh migration (see README). Field types below stay portable.
+// Local development and production both use Postgres. See DEPLOY.md.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// OWNER accounts self-signup. ADMIN is seeded, never chosen on the public form.
+// OWNER accounts self-signup. ADMIN is seeded from env, never chosen on the public form.
 model User {
   id           String      @id @default(cuid())
   email        String      @unique
@@ -37,15 +36,66 @@ model MagicLink {
   @@index([email])
 }
 
+// A launch city. Copy, URLs, and the home picker all read this table.
+// intro is written by the team. An empty intro keeps the city page out of the index.
+model City {
+  slug          String         @id
+  name          String
+  countryCode   String         @default("IN")
+  dialCode      String         @default("91")
+  timezone      String         @default("Asia/Kolkata")
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  intro         String         @default("")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  localities    Locality[]
+  serviceGuides ServiceGuide[]
+  salons        Salon[]
+}
+
+model Locality {
+  id        String  @id @default(cuid())
+  citySlug  String
+  city      City    @relation(fields: [citySlug], references: [slug], onDelete: Cascade)
+  slug      String
+  name      String
+  intro     String  @default("")
+  sortOrder Int     @default(0)
+  salons    Salon[]
+
+  @@unique([citySlug, slug])
+  @@index([citySlug, sortOrder])
+}
+
+// A service landing page for one city, such as /{city}/service/haircut.
+// query is the lowercase phrase matched against a salon's search text.
+model ServiceGuide {
+  id        String @id @default(cuid())
+  citySlug  String
+  city      City   @relation(fields: [citySlug], references: [slug], onDelete: Cascade)
+  slug      String
+  name      String
+  query     String
+  intro     String @default("")
+  sortOrder Int    @default(0)
+
+  @@unique([citySlug, slug])
+  @@index([citySlug, sortOrder])
+}
+
 // status: DRAFT | PENDING | LIVE | HIDDEN
 // gender: MEN | WOMEN | UNISEX
 model Salon {
   id             String        @id @default(cuid())
   ownerId        String        @unique
   owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  citySlug       String
+  city           City          @relation(fields: [citySlug], references: [slug])
   name           String
   slug           String
   areaSlug       String
+  locality       Locality      @relation(fields: [citySlug, areaSlug], references: [citySlug, slug])
   address        String
   description    String        @default("")
   phone          String        @default("")
@@ -63,8 +113,8 @@ model Salon {
   services       Service[]
   hours          OpeningHour[]
 
-  @@unique([areaSlug, slug])
-  @@index([status, areaSlug])
+  @@unique([citySlug, areaSlug, slug])
+  @@index([status, citySlug, areaSlug])
   @@index([isDemo])
 }
 
@@ -93,7 +143,7 @@ model Service {
   @@index([salonId])
 }
 
-// dayOfWeek: 0 Monday … 6 Sunday. Times are 24h "HH:MM" in Asia/Kolkata.
+// dayOfWeek: 0 Monday … 6 Sunday. Times are 24h "HH:MM" in the city's timezone.
 model OpeningHour {
   id        String  @id @default(cuid())
   salonId   String
@@ -104,13 +154,6 @@ model OpeningHour {
   closeTime String  @default("20:00")
 
   @@unique([salonId, dayOfWeek])
-}
-
-model Locality {
-  slug      String @id
-  name      String
-  city      String @default("Pune")
-  sortOrder Int    @default(0)
 }
 
 // key "requireApproval": "true" | "false"

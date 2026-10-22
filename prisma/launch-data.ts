@@ -1,11 +1,14 @@
-export type Area = {
-  slug: string
-  name: string
+/** First launch city. Runtime pages read the database, not this file. */
+export const LAUNCH_CITY = {
+  slug: "pune",
+  name: "Pune",
+  countryCode: "IN",
+  dialCode: "91",
+  timezone: "Asia/Kolkata",
+  sortOrder: 0,
 }
 
-// Source of truth for launch localities. `prisma/seed.ts` copies this into
-// the Locality table so the database matches the public URLs.
-export const AREAS: Area[] = [
+export const LAUNCH_LOCALITIES: { slug: string; name: string }[] = [
   { slug: "baner", name: "Baner" },
   { slug: "aundh", name: "Aundh" },
   { slug: "balewadi", name: "Balewadi" },
@@ -38,12 +41,12 @@ export const AREAS: Area[] = [
   { slug: "chinchwad", name: "Chinchwad" },
 ]
 
-const bySlug = new Map(AREAS.map((area) => [area.slug, area]))
-
-export function getArea(slug: string): Area | undefined {
-  return bySlug.get(slug)
-}
-
-export function areasAlphabetical(): Area[] {
-  return [...AREAS].sort((a, b) => a.name.localeCompare(b.name, "en-IN"))
-}
+/** Service pages start with an empty intro, so they stay out of the index until the team writes one. */
+export const LAUNCH_SERVICES: { slug: string; name: string; query: string }[] = [
+  { slug: "haircut", name: "Haircut", query: "haircut" },
+  { slug: "facial", name: "Facial", query: "facial" },
+  { slug: "bridal-makeup", name: "Bridal makeup", query: "bridal makeup" },
+  { slug: "beard-trim", name: "Beard trim", query: "beard trim" },
+  { slug: "hair-colour", name: "Hair colour", query: "hair colour" },
+  { slug: "manicure", name: "Manicure", query: "manicure" },
+]

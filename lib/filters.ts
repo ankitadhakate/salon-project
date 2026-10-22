@@ -24,19 +24,19 @@ export type PublicFilters = {
 type SearchParamValue = string | string[] | undefined
 export type SearchParams = Record<string, SearchParamValue>
 
-function one(sp: SearchParams, key: string) {
+export function searchParam(sp: SearchParams, key: string) {
   const value = sp[key]
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? ""
 }
 
 export function parseFilters(sp: SearchParams): PublicFilters {
-  const service = one(sp, "service").slice(0, 60)
-  const genderRaw = one(sp, "gender").toUpperCase()
+  const service = searchParam(sp, "service").slice(0, 60)
+  const genderRaw = searchParam(sp, "gender").toUpperCase()
   const gender =
     genderRaw === "MEN" || genderRaw === "WOMEN" || genderRaw === "UNISEX"
       ? genderRaw
       : ""
-  const priceRaw = one(sp, "price")
+  const priceRaw = searchParam(sp, "price")
   const price = priceRaw in BAND_RANGE ? priceRaw : ""
   const range = BAND_RANGE[price] ?? {}
   return {

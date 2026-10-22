@@ -1,32 +1,39 @@
 import Link from "next/link"
-import { AREAS } from "@/lib/areas"
+import { listActiveCities } from "@/lib/places"
+import { siteName } from "@/lib/site"
 
-export function SiteFooter() {
-  const featured = ["koregaon-park", "baner", "kothrud", "hinjewadi", "kharadi", "viman-nagar"]
+export async function SiteFooter() {
+  const cities = await listActiveCities()
+  const name = siteName()
+  const featured = cities[0]?.localities.slice(0, 6) ?? []
   return (
     <footer className="mt-auto border-t border-border">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3">
         <div>
-          <p className="font-heading text-2xl">Saj</p>
+          <p className="font-heading text-2xl">{name}</p>
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-            A free salon list for Pune. Customers browse. Salon owners publish their own prices,
-            photos, and WhatsApp number.
+            A free salon list. Customers browse. Salon owners publish their own prices, photos, and
+            WhatsApp number.
           </p>
         </div>
         <div>
-          <p className="text-sm font-medium">Localities</p>
+          <p className="text-sm font-medium">{cities.length > 1 ? "Cities" : "Localities"}</p>
           <ul className="mt-2 grid grid-cols-2 gap-y-1 text-sm text-muted-foreground">
-            {featured.map((slug) => {
-              const area = AREAS.find((item) => item.slug === slug)
-              if (!area) return null
-              return (
-                <li key={slug}>
-                  <Link href={`/pune/${slug}`} className="hover:text-foreground">
-                    {area.name}
-                  </Link>
-                </li>
-              )
-            })}
+            {cities.length > 1
+              ? cities.map((city) => (
+                  <li key={city.slug}>
+                    <Link href={`/${city.slug}`} className="hover:text-foreground">
+                      {city.name}
+                    </Link>
+                  </li>
+                ))
+              : featured.map((area) => (
+                  <li key={area.slug}>
+                    <Link href={`/${cities[0].slug}/${area.slug}`} className="hover:text-foreground">
+                      {area.name}
+                    </Link>
+                  </li>
+                ))}
           </ul>
         </div>
         <div className="text-sm">
@@ -49,7 +56,7 @@ export function SiteFooter() {
             </li>
           </ul>
           <p className="mt-4 text-muted-foreground">
-            Saj doesn&apos;t take bookings or payments. You talk to the salon directly.
+            {name} doesn&apos;t take bookings or payments. You talk to the salon directly.
           </p>
         </div>
       </div>

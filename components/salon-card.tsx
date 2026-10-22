@@ -1,13 +1,12 @@
 import Link from "next/link"
-import { getArea } from "@/lib/areas"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { genderLabel, inr } from "@/lib/format"
-import type { SalonCard } from "@/lib/salons"
+import type { SalonCard as SalonCardData } from "@/lib/salons"
 
-export function SalonCard({ salon }: { salon: SalonCard }) {
-  const area = getArea(salon.areaSlug)
+export function SalonCard({ salon }: { salon: SalonCardData }) {
   const photo = salon.photos[0]
-  const href = `/pune/${salon.areaSlug}/${salon.slug}`
+  const href = `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`
+  const place = [salon.locality?.name, salon.city?.name].filter(Boolean).join(", ")
   return (
     <li>
       <Link
@@ -20,7 +19,7 @@ export function SalonCard({ salon }: { salon: SalonCard }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photo.url}
-              alt={photo.alt || `${salon.name} in ${area?.name ?? "Pune"}`}
+              alt={photo.alt || `${salon.name} in ${place || "the city"}`}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -46,7 +45,7 @@ export function SalonCard({ salon }: { salon: SalonCard }) {
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            {area?.name ?? salon.areaSlug} · {genderLabel(salon.gender)}
+            {place || salon.areaSlug} · {genderLabel(salon.gender)}
           </p>
           {salon.isEarlyPartner ? (
             <div className="mt-auto pt-2">

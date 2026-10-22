@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { setListingStatus, updateApprovalMode } from "@/app/admin/actions"
+import { AdminDirectory } from "@/components/admin-directory"
 import { Badge } from "@/components/ui/badge"
 import { Flash } from "@/components/flash"
 import { SubmitButton } from "@/components/submit-button"
-import { AREAS } from "@/lib/areas"
+import { allowIndexing, indexMinSalons } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { formatWhen, genderLabel, statusLabel } from "@/lib/format"
@@ -23,7 +24,7 @@ export default async function AdminPage({
   const user = await getSessionUser()
   if (!user || user.role !== "ADMIN") return null
   const sp = await searchParams
-  const [requireApproval, salons, owners, localities] = await Promise.all([
+  const [requireApproval, salons, owners, cities, realLive] = await Promise.all([
     getRequireApproval(),
     prisma.salon.findMany({
       include: { owner: { select: { name: true, email: true, referralCode: true, isDemo: true } } },
@@ -31,10 +32,17 @@ export default async function AdminPage({
     }),
     prisma.user.findMany({
       where: { role: "OWNER" },
-      include: { salon: { select: { name: true, status: true, areaSlug: true, slug: true } } },
+      include: { salon: { select: { name: true, status: true, citySlug: true, areaSlug: true, slug: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.locality.count(),
+    prisma.city.findMany({
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: {
+        localities: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+        serviceGuides: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+      },
+    }),
+    prisma.salon.count({ where: { status: "LIVE", isDemo: false } }),
   ])
 
   const counts = {
@@ -53,8 +61,11 @@ export default async function AdminPage({
     <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="font-heading text-4xl">Review desk</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Signed in as {user.email}. {localities} of {AREAS.length} Pune localities are in the database.
-        Sample accounts and listings are marked, and removed with npm run db:clear-demo.
+        Signed in as {user.email}. {cities.length} cities,{" "}
+        {cities.reduce((sum, city) => sum + city.localities.length, 0)} localities. Sample listings
+        stay labelled Sample and are removed with npm run db:clear-demo. Search indexing is{" "}
+        {allowIndexing() ? "on" : "off"}. Directory pages need a written intro and at least{" "}
+        {indexMinSalons()} approved non-sample salons ({realLive} live right now).
       </p>
       <div className="mt-4">
         <Flash notice={sp.notice?.slice(0, 200)} error={sp.error?.slice(0, 200)} />
@@ -145,7 +156,7 @@ export default async function AdminPage({
                   </form>
                 ) : null}
                 <Link
-                  href={`/pune/${salon.areaSlug}/${salon.slug}`}
+                  href={`/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`}
                   className="inline-flex h-10 items-center px-2 text-sm font-medium text-primary"
                 >
                   Open
@@ -180,7 +191,7 @@ export default async function AdminPage({
               {owner.salon ? (
                 <>
                   {owner.salon.name} · {statusLabel(owner.salon.status)} ·{" "}
-                  <Link className="text-primary" href={`/pune/${owner.salon.areaSlug}/${owner.salon.slug}`}>
+                  <Link className="text-primary" href={`/${owner.salon.citySlug}/${owner.salon.areaSlug}/${owner.salon.slug}`}>
                     page
                   </Link>
                 </>
@@ -191,6 +202,8 @@ export default async function AdminPage({
           </li>
         ))}
       </ul>
+
+      <AdminDirectory cities={cities} />
     </div>
   )
 }

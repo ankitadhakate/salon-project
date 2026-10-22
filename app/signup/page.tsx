@@ -30,7 +30,7 @@ export default async function SignupPage({
     <div className="mx-auto w-full max-w-md px-4 py-10">
       <h1 className="font-heading text-4xl">Create your account</h1>
       <p className="mt-2 text-muted-foreground">
-        Free during the Pune early partner program. You&apos;ll add the salon on the next screen.
+        Free during the early partner program. You&apos;ll choose a city and add the salon on the next screen.
       </p>
       <div className="mt-4">
         <Flash error={sp.error?.slice(0, 200)} />

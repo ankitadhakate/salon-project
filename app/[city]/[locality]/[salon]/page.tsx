@@ -3,56 +3,49 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { ContactActions } from "@/components/contact-actions"
-import { getArea } from "@/lib/areas"
-import { SERVICE_CATEGORIES } from "@/lib/constants"
+import { SERVICE_CATEGORIES, DAYS } from "@/lib/constants"
 import {
   formatDuration,
   formatPhone,
+  formatTime,
   genderLabel,
   inr,
   isOpenNow,
   statusLabel,
   todayHoursLabel,
-  formatTime,
 } from "@/lib/format"
-import { DAYS } from "@/lib/constants"
+import { robotsFor } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
 import { getSalonBySlug, viewerCanSee } from "@/lib/salons"
+import { siteName } from "@/lib/site"
 import { appUrl } from "@/lib/urls"
 
-type Props = { params: Promise<{ area: string; slug: string }> }
+type Props = { params: Promise<{ city: string; locality: string; salon: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { area: areaSlug, slug } = await params
-  const area = getArea(areaSlug)
-  const salon = area ? await getSalonBySlug(area.slug, slug) : null
-  if (!area || !salon || salon.status !== "LIVE") {
-    return { title: "Salon", robots: { index: false, follow: false } }
+  const { city: citySlug, locality: areaSlug, salon: slug } = await params
+  const salon = await getSalonBySlug(citySlug, areaSlug, slug)
+  const place = salon ? `${salon.locality?.name ?? areaSlug}, ${salon.city?.name ?? citySlug}` : ""
+  if (!salon || salon.status !== "LIVE") {
+    return { title: "Salon", robots: robotsFor(false) }
   }
-  const title = `${salon.name} in ${area.name}, Pune`
+  const title = `${salon.name} in ${place}`
   const price = salon.startingPrice != null ? ` Services from ${inr(salon.startingPrice)}.` : ""
-  const description = `${salon.name} is a ${genderLabel(salon.gender).toLowerCase()} salon in ${area.name}, Pune.${price} ${salon.description}`.slice(0, 180)
-  const index = salon.status === "LIVE" && !salon.isDemo
+  const description = `${salon.name} is a ${genderLabel(salon.gender).toLowerCase()} salon in ${place}.${price} ${salon.description}`.slice(0, 180)
+  const path = `/${citySlug}/${areaSlug}/${salon.slug}`
   return {
     title,
     description,
-    alternates: { canonical: `/pune/${area.slug}/${salon.slug}` },
-    openGraph: {
-      title,
-      description,
-      url: `/pune/${area.slug}/${salon.slug}`,
-      type: "website",
-    },
-    robots: index ? { index: true, follow: true } : { index: false, follow: false },
+    alternates: { canonical: path },
+    openGraph: { title, description, url: path, type: "website" },
+    robots: robotsFor(!salon.isDemo),
   }
 }
 
 export default async function SalonPage({ params }: Props) {
-  const { area: areaSlug, slug } = await params
-  const area = getArea(areaSlug)
-  if (!area) notFound()
-  const salon = await getSalonBySlug(area.slug, slug)
-  if (!salon) notFound()
+  const { city: citySlug, locality: areaSlug, salon: slug } = await params
+  const salon = await getSalonBySlug(citySlug, areaSlug, slug)
+  if (!salon?.city || !salon.locality) notFound()
   const viewer = await getSessionUser()
   const access = viewerCanSee(salon, viewer)
   if (!access.visible) notFound()
@@ -64,24 +57,26 @@ export default async function SalonPage({ params }: Props) {
     list.push(service)
     groups.set(service.category, list)
   }
-  const open = isOpenNow(salon.hours)
-  const pageUrl = appUrl(`/pune/${area.slug}/${salon.slug}`)
+  const timeZone = salon.city.timezone
+  const open = isOpenNow(salon.hours, timeZone)
+  const place = `${salon.locality.name}, ${salon.city.name}`
+  const path = `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`
+  const pageUrl = appUrl(path)
+  const brand = siteName()
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
     name: salon.name,
     description: salon.description,
     url: pageUrl,
-    image: salon.photos.map((photo) =>
-      photo.url.startsWith("http") ? photo.url : appUrl(photo.url),
-    ),
-    telephone: salon.phone ? `+91${salon.phone}` : undefined,
+    image: salon.photos.map((photo) => (photo.url.startsWith("http") ? photo.url : appUrl(photo.url))),
+    telephone: salon.phone ? `+${salon.city.dialCode}${salon.phone}` : undefined,
     address: {
       "@type": "PostalAddress",
       streetAddress: salon.address,
-      addressLocality: area.name,
-      addressRegion: "MH",
-      addressCountry: "IN",
+      addressLocality: salon.locality.name,
+      addressRegion: salon.city.name,
+      addressCountry: salon.city.countryCode,
     },
     priceRange: salon.startingPrice != null ? `From ${inr(salon.startingPrice)}` : undefined,
     openingHoursSpecification: salon.hours
@@ -109,14 +104,14 @@ export default async function SalonPage({ params }: Props) {
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href="/pune" className="hover:text-foreground">
-              Pune
+            <Link href={`/${salon.citySlug}`} className="hover:text-foreground">
+              {salon.city.name}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href={`/pune/${area.slug}`} className="hover:text-foreground">
-              {area.name}
+            <Link href={`/${salon.citySlug}/${salon.areaSlug}`} className="hover:text-foreground">
+              {salon.locality.name}
             </Link>
           </li>
         </ol>
@@ -130,7 +125,7 @@ export default async function SalonPage({ params }: Props) {
       {salon.isDemo ? (
         <p className="mt-4 rounded-xl border border-border bg-card px-3 py-2 text-sm">
           Sample listing for development. Not a real salon. Remove samples with{" "}
-          <span className="font-medium">npm run db:clear-demo</span> before a public launch.
+          <span className="font-medium">npm run db:clear-demo</span> before you rely on this data.
         </p>
       ) : null}
 
@@ -143,7 +138,7 @@ export default async function SalonPage({ params }: Props) {
                 <img
                   key={photo.id}
                   src={photo.url}
-                  alt={photo.alt || `${salon.name} in ${area.name}`}
+                  alt={photo.alt || `${salon.name} in ${place}`}
                   className="h-64 w-[86%] shrink-0 snap-center rounded-2xl object-cover sm:h-96 sm:w-full"
                 />
               ))}
@@ -163,7 +158,7 @@ export default async function SalonPage({ params }: Props) {
           <h1 className="mt-2 font-heading text-4xl text-balance sm:text-5xl">{salon.name}</h1>
           <p className="mt-2 text-muted-foreground">
             {salon.address}
-            <span className="block">{area.name}, Pune</span>
+            <span className="block">{place}</span>
           </p>
           {salon.startingPrice != null ? (
             <p className="mt-3 text-lg font-medium">Services from {inr(salon.startingPrice)}</p>
@@ -171,7 +166,7 @@ export default async function SalonPage({ params }: Props) {
           {salon.description ? <p className="mt-4 max-w-2xl leading-relaxed">{salon.description}</p> : null}
           {salon.isEarlyPartner ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Early partner — joined during Saj&apos;s free Pune launch.
+              Early partner — joined during the free launch.
             </p>
           ) : null}
 
@@ -202,7 +197,7 @@ export default async function SalonPage({ params }: Props) {
           )}
 
           <h2 className="mt-10 font-heading text-3xl">Opening hours</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{todayHoursLabel(salon.hours)} · IST</p>
+          <p className="mt-1 text-sm text-muted-foreground">{todayHoursLabel(salon.hours, timeZone)} · local time</p>
           <ul className="mt-3 divide-y divide-border">
             {DAYS.map((day, index) => {
               const row = salon.hours.find((hour) => hour.dayOfWeek === index)
@@ -210,9 +205,7 @@ export default async function SalonPage({ params }: Props) {
                 <li key={day} className="flex items-center justify-between py-2 text-sm">
                   <span>{day}</span>
                   <span className="tabular-nums">
-                    {!row || row.closed
-                      ? "Closed"
-                      : `${formatTime(row.openTime)} – ${formatTime(row.closeTime)}`}
+                    {!row || row.closed ? "Closed" : `${formatTime(row.openTime)} – ${formatTime(row.closeTime)}`}
                   </span>
                 </li>
               )
@@ -224,7 +217,7 @@ export default async function SalonPage({ params }: Props) {
           <div className="sticky top-24 rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
             <p className="font-heading text-2xl">Contact {salon.name}</p>
             <p className="mt-1 mb-4 text-sm text-muted-foreground">
-              {open ? "Open now" : "Closed now"}. {todayHoursLabel(salon.hours)}.
+              {open ? "Open now" : "Closed now"}. {todayHoursLabel(salon.hours, timeZone)}.
             </p>
             <ContactActions
               name={salon.name}
@@ -232,10 +225,12 @@ export default async function SalonPage({ params }: Props) {
               whatsapp={salon.whatsapp}
               address={salon.address}
               demo={salon.isDemo}
+              place={place}
+              dialCode={salon.city.dialCode}
             />
             <p className="mt-4 text-xs text-muted-foreground">
-              Saj doesn&apos;t take the booking or a fee. You&apos;re messaging the salon
-              {salon.whatsapp ? ` at ${formatPhone(salon.whatsapp)}` : ""}.
+              {brand} doesn&apos;t take the booking or a fee. You&apos;re messaging the salon
+              {salon.whatsapp ? ` at ${formatPhone(salon.whatsapp, salon.city.dialCode)}` : ""}.
             </p>
           </div>
         </aside>
@@ -249,6 +244,8 @@ export default async function SalonPage({ params }: Props) {
             whatsapp={salon.whatsapp}
             address={salon.address}
             demo={salon.isDemo}
+            place={place}
+            dialCode={salon.city.dialCode}
             layout="bar"
           />
         </div>

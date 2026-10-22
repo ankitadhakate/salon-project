@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { ListingEditor } from "@/components/listing-editor"
 import { Flash } from "@/components/flash"
 import { getSessionUser } from "@/lib/auth"
+import { listActiveCities } from "@/lib/places"
 import { getOwnerSalon } from "@/lib/salons"
 
 export const metadata: Metadata = {
@@ -16,7 +17,7 @@ export default async function DashboardPage({
 }) {
   const user = await getSessionUser()
   if (!user) return null
-  const salon = await getOwnerSalon(user.id)
+  const [salon, cities] = await Promise.all([getOwnerSalon(user.id), listActiveCities()])
   const sp = await searchParams
 
   return (
@@ -32,7 +33,11 @@ export default async function DashboardPage({
         <Flash notice={sp.notice?.slice(0, 200)} error={sp.error?.slice(0, 200)} />
       </div>
       <div className="mt-6">
-        <ListingEditor salon={salon} user={user} />
+        <ListingEditor
+          salon={salon}
+          user={user}
+          cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))}
+        />
       </div>
     </div>
   )

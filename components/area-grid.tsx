@@ -1,15 +1,22 @@
 import Link from "next/link"
-import { AREAS } from "@/lib/areas"
 
-export function AreaGrid({ counts }: { counts: Map<string, number> }) {
+export function AreaGrid({
+  citySlug,
+  localities,
+  counts,
+}: {
+  citySlug: string
+  localities: { slug: string; name: string }[]
+  counts: Map<string, number>
+}) {
   return (
     <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      {AREAS.map((area) => {
+      {localities.map((area) => {
         const count = counts.get(area.slug) ?? 0
         return (
           <li key={area.slug}>
             <Link
-              href={`/pune/${area.slug}`}
+              href={`/${citySlug}/${area.slug}`}
               className="flex h-full flex-col justify-between rounded-2xl bg-card px-3 py-3 ring-1 ring-foreground/10 hover:ring-foreground/25"
             >
               <span className="font-medium">{area.name}</span>

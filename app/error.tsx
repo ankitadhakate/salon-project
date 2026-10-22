@@ -5,7 +5,7 @@ export default function Error({ reset }: { error: Error & { digest?: string }; r
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
       <h1 className="font-heading text-4xl">Something went wrong</h1>
       <p className="mt-3 text-muted-foreground">
-        The page didn&apos;t load. Try again, or go back to the Pune list.
+        The page didn&apos;t load. Try again, or go back to the home page.
       </p>
       <button
         type="button"

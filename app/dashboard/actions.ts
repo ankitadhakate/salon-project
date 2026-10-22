@@ -13,7 +13,8 @@ import {
 } from "@/lib/salons"
 import { getRequireApproval } from "@/lib/settings"
 import { getImageStorage, ImageStorageError } from "@/lib/storage"
-import { parseHours, parsePassword, parseProfile, parseService } from "@/lib/validators"
+import { getLocality } from "@/lib/places"
+import { normalizePhone, parseHours, parsePassword, parseProfile, parseService } from "@/lib/validators"
 
 async function requireOwner() {
   const user = await getSessionUser()
@@ -28,11 +29,12 @@ function dashRedirect(opts: { notice?: string; error?: string }): never {
   redirect(`/dashboard?${params.toString()}`)
 }
 
-function touchPublic(areaSlug: string, slug: string) {
+function touchPublic(citySlug: string, areaSlug: string, slug: string) {
   revalidatePath("/")
-  revalidatePath("/pune")
-  revalidatePath(`/pune/${areaSlug}`)
-  revalidatePath(`/pune/${areaSlug}/${slug}`)
+  revalidatePath(`/${citySlug}`)
+  revalidatePath(`/${citySlug}/${areaSlug}`)
+  revalidatePath(`/${citySlug}/${areaSlug}/${slug}`)
+  revalidatePath(`/${citySlug}/service`)
   revalidatePath("/sitemap.xml")
   revalidatePath("/admin")
   revalidatePath("/dashboard")
@@ -42,21 +44,29 @@ export async function saveProfile(formData: FormData) {
   const user = await requireOwner()
   const parsed = parseProfile(formData)
   if (!parsed.ok) dashRedirect({ error: parsed.error })
+  const place = await getLocality(parsed.data.citySlug, parsed.data.areaSlug)
+  if (!place) dashRedirect({ error: "Choose a city and locality from the list." })
+  const phone = normalizePhone(parsed.data.phone, place.city.countryCode, "Phone")
+  if (!phone.ok) dashRedirect({ error: phone.error })
+  const whatsapp = normalizePhone(parsed.data.whatsapp, place.city.countryCode, "WhatsApp")
+  if (!whatsapp.ok) dashRedirect({ error: whatsapp.error })
+  const profile = { ...parsed.data, phone: phone.value, whatsapp: whatsapp.value }
   const existing = await getOwnerSalon(user.id)
 
   if (!existing) {
-    const slug = await uniqueSlug(parsed.data.areaSlug, parsed.data.name)
+    const slug = await uniqueSlug(profile.citySlug, profile.areaSlug, profile.name)
     const salon = await prisma.salon.create({
       data: {
         ownerId: user.id,
-        name: parsed.data.name,
+        name: profile.name,
         slug,
-        areaSlug: parsed.data.areaSlug,
-        address: parsed.data.address,
-        description: parsed.data.description,
-        gender: parsed.data.gender,
-        phone: parsed.data.phone,
-        whatsapp: parsed.data.whatsapp,
+        citySlug: profile.citySlug,
+        areaSlug: profile.areaSlug,
+        address: profile.address,
+        description: profile.description,
+        gender: profile.gender,
+        phone: profile.phone,
+        whatsapp: profile.whatsapp,
         status: "DRAFT",
         isEarlyPartner: EARLY_PARTNER_PROGRAM,
         referralCode: user.referralCode,
@@ -64,30 +74,31 @@ export async function saveProfile(formData: FormData) {
       },
     })
     await refreshSalonSearch(salon.id)
-    touchPublic(salon.areaSlug, salon.slug)
+    touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
     dashRedirect({ notice: "Listing started. Add services, hours, and photos next." })
   }
 
   let slug = existing.slug
-  if (existing.areaSlug !== parsed.data.areaSlug) {
-    slug = await uniqueSlug(parsed.data.areaSlug, existing.slug, existing.id)
+  if (existing.citySlug !== profile.citySlug || existing.areaSlug !== profile.areaSlug) {
+    slug = await uniqueSlug(profile.citySlug, profile.areaSlug, existing.slug, existing.id)
   }
   const salon = await prisma.salon.update({
     where: { id: existing.id },
     data: {
-      name: parsed.data.name,
+      name: profile.name,
       slug,
-      areaSlug: parsed.data.areaSlug,
-      address: parsed.data.address,
-      description: parsed.data.description,
-      gender: parsed.data.gender,
-      phone: parsed.data.phone,
-      whatsapp: parsed.data.whatsapp,
+      citySlug: profile.citySlug,
+      areaSlug: profile.areaSlug,
+      address: profile.address,
+      description: profile.description,
+      gender: profile.gender,
+      phone: profile.phone,
+      whatsapp: profile.whatsapp,
     },
   })
   await refreshSalonSearch(salon.id)
-  touchPublic(existing.areaSlug, existing.slug)
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(existing.citySlug, existing.areaSlug, existing.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Salon details saved." })
 }
 
@@ -102,7 +113,7 @@ export async function addService(formData: FormData) {
     data: { salonId: salon.id, ...parsed.data, sortOrder: count },
   })
   await refreshSalonSearch(salon.id)
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Service added." })
 }
 
@@ -117,7 +128,7 @@ export async function updateService(formData: FormData) {
   if (!parsed.ok) dashRedirect({ error: parsed.error })
   await prisma.service.update({ where: { id }, data: parsed.data })
   await refreshSalonSearch(salon.id)
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Service updated." })
 }
 
@@ -130,7 +141,7 @@ export async function deleteService(formData: FormData) {
   if (!service) dashRedirect({ error: "That service is not on your listing." })
   await prisma.service.delete({ where: { id } })
   await refreshSalonSearch(salon.id)
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Service removed." })
 }
 
@@ -147,7 +158,7 @@ export async function saveHours(formData: FormData) {
       update: row,
     })
   }
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Opening hours saved." })
 }
 
@@ -183,7 +194,7 @@ export async function uploadPhotos(formData: FormData) {
     console.error(error)
     dashRedirect({ error: "Couldn't upload that photo." })
   }
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: files.length === 1 ? "Photo added." : "Photos added." })
 }
 
@@ -196,7 +207,7 @@ export async function deletePhoto(formData: FormData) {
   if (!photo) dashRedirect({ error: "That photo is not on your listing." })
   await getImageStorage().remove(photo.storageKey)
   await prisma.photo.delete({ where: { id } })
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Photo removed." })
 }
 
@@ -209,7 +220,7 @@ export async function makeCover(formData: FormData) {
   if (!photo) dashRedirect({ error: "That photo is not on your listing." })
   const min = Math.min(...salon.photos.map((item) => item.sortOrder))
   await prisma.photo.update({ where: { id }, data: { sortOrder: min - 1 } })
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({ notice: "Cover photo updated." })
 }
 
@@ -232,7 +243,7 @@ export async function submitListing() {
   const requireApproval = await getRequireApproval()
   const status = requireApproval ? "PENDING" : "LIVE"
   await prisma.salon.update({ where: { id: salon.id }, data: { status } })
-  touchPublic(salon.areaSlug, salon.slug)
+  touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
   dashRedirect({
     notice: requireApproval
       ? "Submitted. A reviewer will make it public after a quick check."

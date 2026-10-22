@@ -1,4 +1,5 @@
 import { formatPhone, mapsHref, whatsAppHref } from "@/lib/format"
+import { siteName } from "@/lib/site"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -9,6 +10,8 @@ export function ContactActions({
   address,
   demo = false,
   layout = "stack",
+  place = "",
+  dialCode = "91",
 }: {
   name: string
   phone: string
@@ -16,6 +19,8 @@ export function ContactActions({
   address: string
   demo?: boolean
   layout?: "stack" | "bar"
+  place?: string
+  dialCode?: string
 }) {
   if (demo) {
     return (
@@ -29,7 +34,7 @@ export function ContactActions({
       <div className="flex gap-2">
         {whatsapp ? (
           <a
-            href={whatsAppHref(whatsapp, name)}
+            href={whatsAppHref(whatsapp, name, siteName(), dialCode)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-whatsapp px-4 text-base font-medium text-white"
@@ -52,7 +57,7 @@ export function ContactActions({
     <div className="grid gap-2">
       {whatsapp ? (
         <a
-          href={whatsAppHref(whatsapp, name)}
+          href={whatsAppHref(whatsapp, name, siteName(), dialCode)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-12 items-center justify-center rounded-xl bg-whatsapp px-4 text-base font-medium text-white"
@@ -69,7 +74,7 @@ export function ContactActions({
         </a>
       ) : null}
       <a
-        href={mapsHref(address)}
+        href={mapsHref(address, place)}
         target="_blank"
         rel="noopener noreferrer"
         className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"

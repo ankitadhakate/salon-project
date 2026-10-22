@@ -1,15 +1,21 @@
 import { Prisma } from "@prisma/client"
-import { getArea } from "@/lib/areas"
 import { prisma } from "@/lib/db"
+
+const placeInclude = {
+  city: { select: { slug: true, name: true, timezone: true, dialCode: true, countryCode: true } },
+  locality: { select: { slug: true, name: true, intro: true } },
+} satisfies Prisma.SalonInclude
 
 const cardInclude = {
   photos: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  ...placeInclude,
 } satisfies Prisma.SalonInclude
 
 const detailInclude = {
   photos: { orderBy: { sortOrder: "asc" as const } },
   services: { orderBy: { sortOrder: "asc" as const } },
   hours: { orderBy: { dayOfWeek: "asc" as const } },
+  ...placeInclude,
 } satisfies Prisma.SalonInclude
 
 export type SalonCard = Prisma.SalonGetPayload<{ include: typeof cardInclude }>
@@ -30,11 +36,35 @@ export function publicSalonWhere(): Prisma.SalonWhereInput {
 }
 
 export type SalonQuery = {
+  citySlug?: string
   areaSlug?: string
   service?: string
   gender?: "" | "MEN" | "WOMEN" | "UNISEX"
   minPrice?: number
   maxPrice?: number
+}
+
+export function realSalonWhere(filter: {
+  citySlug: string
+  areaSlug?: string
+  serviceQuery?: string
+}): Prisma.SalonWhereInput {
+  const service = filter.serviceQuery?.trim().toLowerCase()
+  return {
+    status: "LIVE",
+    isDemo: false,
+    citySlug: filter.citySlug,
+    ...(filter.areaSlug ? { areaSlug: filter.areaSlug } : {}),
+    ...(service ? { searchBlob: { contains: service } } : {}),
+  }
+}
+
+export function countRealSalons(filter: {
+  citySlug: string
+  areaSlug?: string
+  serviceQuery?: string
+}) {
+  return prisma.salon.count({ where: realSalonWhere(filter) })
 }
 
 export async function listLiveSalons(query: SalonQuery = {}) {
@@ -47,6 +77,7 @@ export async function listLiveSalons(query: SalonQuery = {}) {
   return prisma.salon.findMany({
     where: {
       ...publicSalonWhere(),
+      ...(query.citySlug ? { citySlug: query.citySlug } : {}),
       ...(query.areaSlug ? { areaSlug: query.areaSlug } : {}),
       ...(query.gender === "MEN" ? { gender: { in: ["MEN", "UNISEX"] } } : {}),
       ...(query.gender === "WOMEN" ? { gender: { in: ["WOMEN", "UNISEX"] } } : {}),
@@ -59,18 +90,18 @@ export async function listLiveSalons(query: SalonQuery = {}) {
   })
 }
 
-export async function countLiveByArea() {
+export async function countLiveByArea(citySlug: string) {
   const rows = await prisma.salon.groupBy({
     by: ["areaSlug"],
-    where: publicSalonWhere(),
+    where: { ...publicSalonWhere(), citySlug },
     _count: { _all: true },
   })
   return new Map(rows.map((row) => [row.areaSlug, row._count._all]))
 }
 
-export async function getSalonBySlug(areaSlug: string, slug: string) {
+export async function getSalonBySlug(citySlug: string, areaSlug: string, slug: string) {
   return prisma.salon.findUnique({
-    where: { areaSlug_slug: { areaSlug, slug } },
+    where: { citySlug_areaSlug_slug: { citySlug, areaSlug, slug } },
     include: detailInclude,
   })
 }
@@ -98,12 +129,17 @@ export function slugify(input: string) {
   return slug || "salon"
 }
 
-export async function uniqueSlug(areaSlug: string, base: string, excludeId?: string) {
+export async function uniqueSlug(
+  citySlug: string,
+  areaSlug: string,
+  base: string,
+  excludeId?: string,
+) {
   const root = slugify(base)
   let slug = root
   for (let n = 2; n < 50; n += 1) {
     const found = await prisma.salon.findUnique({
-      where: { areaSlug_slug: { areaSlug, slug } },
+      where: { citySlug_areaSlug_slug: { citySlug, areaSlug, slug } },
       select: { id: true },
     })
     if (!found || found.id === excludeId) return slug
@@ -127,11 +163,16 @@ export async function refreshSalonSearch(salonId: string) {
     include: { services: true },
   })
   if (!salon) return
-  const areaName = getArea(salon.areaSlug)?.name ?? salon.areaSlug
+  const place = await prisma.locality.findUnique({
+    where: { citySlug_slug: { citySlug: salon.citySlug, slug: salon.areaSlug } },
+    include: { city: { select: { name: true } } },
+  })
   const searchBlob = [
     salon.name,
-    areaName,
+    place?.name ?? salon.areaSlug,
+    place?.city.name,
     salon.areaSlug,
+    salon.citySlug,
     salon.address,
     salon.description,
     salon.gender,

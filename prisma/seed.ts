@@ -1,8 +1,10 @@
+import { randomBytes } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import bcrypt from "bcryptjs"
 import { loadEnv } from "./load-env"
 import { demoCoverSvg } from "./demo-art"
+import { LAUNCH_CITY, LAUNCH_LOCALITIES, LAUNCH_SERVICES } from "./launch-data"
 
 loadEnv()
 
@@ -269,29 +271,58 @@ function searchBlob(demo: DemoSalon, areaName: string) {
 }
 
 async function main() {
-  const { AREAS } = await import("../lib/areas")
+  const { assertProductionRuntime, isProduction } = await import("../lib/production")
+  if (isProduction()) assertProductionRuntime()
   const { prisma } = await import("../lib/db")
-  const passwordHash = await bcrypt.hash("saj-demo-owner", 10)
+  const demoPassword = isProduction() ? randomBytes(24).toString("base64url") : "saj-demo-owner"
+  const passwordHash = await bcrypt.hash(demoPassword, 10)
 
-  for (const [index, area] of AREAS.entries()) {
+  await prisma.city.upsert({
+    where: { slug: LAUNCH_CITY.slug },
+    update: {
+      name: LAUNCH_CITY.name,
+      countryCode: LAUNCH_CITY.countryCode,
+      dialCode: LAUNCH_CITY.dialCode,
+      timezone: LAUNCH_CITY.timezone,
+      sortOrder: LAUNCH_CITY.sortOrder,
+      active: true,
+    },
+    create: { ...LAUNCH_CITY, intro: "", active: true },
+  })
+
+  for (const [index, area] of LAUNCH_LOCALITIES.entries()) {
     await prisma.locality.upsert({
-      where: { slug: area.slug },
-      update: { name: area.name, sortOrder: index, city: "Pune" },
-      create: { slug: area.slug, name: area.name, sortOrder: index, city: "Pune" },
+      where: { citySlug_slug: { citySlug: LAUNCH_CITY.slug, slug: area.slug } },
+      update: { name: area.name, sortOrder: index },
+      create: {
+        citySlug: LAUNCH_CITY.slug,
+        slug: area.slug,
+        name: area.name,
+        sortOrder: index,
+        intro: "",
+      },
     })
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || "admin@saj.local").toLowerCase()
-  const adminPassword = process.env.ADMIN_PASSWORD || "saj-admin-dev"
-  if (adminPassword.length < 8) {
-    throw new Error("ADMIN_PASSWORD must be at least 8 characters.")
+  for (const [index, guide] of LAUNCH_SERVICES.entries()) {
+    await prisma.serviceGuide.upsert({
+      where: { citySlug_slug: { citySlug: LAUNCH_CITY.slug, slug: guide.slug } },
+      update: { name: guide.name, query: guide.query, sortOrder: index },
+      create: { citySlug: LAUNCH_CITY.slug, ...guide, sortOrder: index, intro: "" },
+    })
+  }
+
+  const adminEmail = (process.env.ADMIN_EMAIL || (isProduction() ? "" : "admin@saj.local")).toLowerCase()
+  const adminPassword = process.env.ADMIN_PASSWORD || (isProduction() ? "" : "saj-admin-dev")
+  if (!adminEmail.includes("@") || adminPassword.length < 8) {
+    throw new Error("Set ADMIN_EMAIL and ADMIN_PASSWORD before seeding.")
   }
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } })
   if (!existingAdmin) {
     await prisma.user.create({
       data: {
         email: adminEmail,
-        name: process.env.ADMIN_NAME || "Saj Admin",
+        name: process.env.ADMIN_NAME || "Admin",
         passwordHash: await bcrypt.hash(adminPassword, 10),
         role: "ADMIN",
       },
@@ -320,7 +351,7 @@ async function main() {
   await mkdir(artDir, { recursive: true })
 
   for (const [index, demo] of DEMOS.entries()) {
-    const area = AREAS.find((item) => item.slug === demo.areaSlug)
+    const area = LAUNCH_LOCALITIES.find((item) => item.slug === demo.areaSlug)
     if (!area) throw new Error(`Unknown area ${demo.areaSlug}`)
     const phone = `99999000${String(index + 1).padStart(2, "0")}`.slice(0, 10)
 
@@ -340,6 +371,7 @@ async function main() {
     const startingPrice = Math.min(...demo.services.map((service) => service.priceInr))
     const data = {
       name: demo.name,
+      citySlug: LAUNCH_CITY.slug,
       areaSlug: demo.areaSlug,
       address: demo.address,
       description: demo.description,
@@ -351,11 +383,17 @@ async function main() {
       isDemo: true,
       referralCode: demo.referralCode,
       startingPrice,
-      searchBlob: searchBlob(demo, area.name),
+      searchBlob: searchBlob(demo, `${area.name} ${LAUNCH_CITY.name}`),
     }
 
     const existing = await prisma.salon.findUnique({
-      where: { areaSlug_slug: { areaSlug: demo.areaSlug, slug: demo.slug } },
+      where: {
+        citySlug_areaSlug_slug: {
+          citySlug: LAUNCH_CITY.slug,
+          areaSlug: demo.areaSlug,
+          slug: demo.slug,
+        },
+      },
     })
     const salon = existing
       ? await prisma.salon.update({ where: { id: existing.id }, data })
@@ -386,7 +424,7 @@ async function main() {
       const filename = `${demo.slug}-${variant}.svg`
       const svg = demoCoverSvg({
         title: demo.name,
-        place: `${area.name}, Pune`,
+        place: `${area.name}, ${LAUNCH_CITY.name}`,
         from,
         a: demo.palette.a,
         b: demo.palette.b,
@@ -406,8 +444,10 @@ async function main() {
     }
   }
 
-  console.log(`Seeded ${AREAS.length} Pune localities and ${DEMOS.length} sample salons.`)
-  console.log("Demo owner: demo-owner@saj.local / saj-demo-owner")
+  console.log(
+    `Seeded ${LAUNCH_CITY.name} with ${LAUNCH_LOCALITIES.length} localities and ${DEMOS.length} sample salons.`,
+  )
+  if (!isProduction()) console.log("Demo owner: demo-owner@saj.local / saj-demo-owner")
   console.log(`Admin: ${adminEmail} (password set only when that user is first created)`)
   console.log("Remove sample listings with: npm run db:clear-demo")
   await prisma.$disconnect()

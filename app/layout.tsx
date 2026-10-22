@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next"
 import { Fraunces, Outfit } from "next/font/google"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
+import { allowIndexing } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
+import { siteName } from "@/lib/site"
 import { appBaseUrl } from "@/lib/urls"
 import "./globals.css"
 
@@ -18,20 +20,24 @@ const fraunces = Fraunces({
   display: "swap",
 })
 
-export const metadata: Metadata = {
-  metadataBase: new URL(appBaseUrl()),
-  title: {
-    default: "Saj — Salons in Pune",
-    template: "%s · Saj",
-  },
-  description:
-    "Find salons in Pune by area and service. Haircut, facial, bridal makeup, and more, with prices listed by the salon. Free for customers.",
-  applicationName: "Saj",
-  openGraph: {
-    type: "website",
-    locale: "en_IN",
-    siteName: "Saj",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const name = siteName()
+  return {
+    metadataBase: new URL(appBaseUrl()),
+    title: {
+      default: `${name} — Find a salon`,
+      template: `%s · ${name}`,
+    },
+    description:
+      "Find salons by city, area, and service. Haircut, facial, bridal makeup, and more, with prices listed by the salon. Free for customers.",
+    applicationName: name,
+    robots: allowIndexing() ? { index: true, follow: true } : { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      locale: "en_IN",
+      siteName: name,
+    },
+  }
 }
 
 export const viewport: Viewport = {
@@ -45,7 +51,7 @@ export const dynamic = "force-dynamic"
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getSessionUser()
   return (
-    <html lang="en-IN" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <a
           href="#main"

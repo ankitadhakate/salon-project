@@ -1,22 +1,27 @@
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { MobileNav } from "@/components/mobile-nav"
+import { listActiveCities } from "@/lib/places"
+import { siteName } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 type NavUser = { name: string; role: string } | null
 
-export function SiteHeader({ user }: { user: NavUser }) {
+export async function SiteHeader({ user }: { user: NavUser }) {
+  const cities = await listActiveCities()
+  const browse = cities[0] ? `/${cities[0].slug}` : "/"
+  const name = siteName()
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur">
       <div className="h-1 bg-primary" />
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <Link href="/" className="font-heading text-[1.7rem] leading-none tracking-tight">
-          Saj
+          {name}
         </Link>
-        <p className="hidden text-sm text-muted-foreground md:block">Pune salons</p>
+        <p className="hidden text-sm text-muted-foreground md:block">Salon listings</p>
         <nav className="ml-auto hidden items-center gap-5 text-sm sm:flex">
-          <Link href="/pune" className="hover:text-primary">
-            Areas
+          <Link href={browse} className="hover:text-primary">
+            Browse
           </Link>
           <Link href="/for-salons" className="hover:text-primary">
             For salons
@@ -48,7 +53,7 @@ export function SiteHeader({ user }: { user: NavUser }) {
           )}
         </nav>
         <div className="ml-auto sm:hidden">
-          <MobileNav user={user} />
+          <MobileNav user={user} browseHref={browse} siteName={name} />
         </div>
       </div>
     </header>

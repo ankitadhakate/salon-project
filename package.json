@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3847",
     "build": "prisma generate && next build",
-    "start": "next start -H 0.0.0.0 -p 3847",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3847}",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",

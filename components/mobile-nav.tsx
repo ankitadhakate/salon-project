@@ -13,7 +13,15 @@ import {
 
 type NavUser = { name: string; role: string } | null
 
-export function MobileNav({ user }: { user: NavUser }) {
+export function MobileNav({
+  user,
+  browseHref,
+  siteName,
+}: {
+  user: NavUser
+  browseHref: string
+  siteName: string
+}) {
   return (
     <Dialog>
       <DialogTrigger
@@ -24,12 +32,12 @@ export function MobileNav({ user }: { user: NavUser }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-heading text-2xl">Saj</DialogTitle>
-          <DialogDescription>Salons in Pune, listed by the people who run them.</DialogDescription>
+          <DialogTitle className="font-heading text-2xl">{siteName}</DialogTitle>
+          <DialogDescription>Salons listed by the people who run them.</DialogDescription>
         </DialogHeader>
         <nav className="grid text-lg">
-          <Link className="rounded-lg px-1 py-3" href="/pune">
-            Browse areas
+          <Link className="rounded-lg px-1 py-3" href={browseHref}>
+            Browse
           </Link>
           <Link className="rounded-lg px-1 py-3" href="/for-salons">
             List your salon

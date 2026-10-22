@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { getArea } from "@/lib/areas"
 import { GENDERS, SERVICE_CATEGORIES } from "@/lib/constants"
 
 function firstIssue(error: z.ZodError) {
@@ -12,16 +11,6 @@ export function normalizeIndianMobile(input: string) {
   if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1)
   if (!/^[6-9]\d{9}$/.test(digits)) return null
   return digits
-}
-
-function optionalMobile(input: string, label: string) {
-  const trimmed = input.trim()
-  if (!trimmed) return { ok: true as const, value: "" }
-  const value = normalizeIndianMobile(trimmed)
-  if (!value) {
-    return { ok: false as const, error: `${label} should be a 10-digit Indian mobile number.` }
-  }
-  return { ok: true as const, value }
 }
 
 const referralSchema = z
@@ -101,33 +90,46 @@ export function parseEmail(formData: FormData) {
   return { ok: true as const, email: parsed.data }
 }
 
+export function normalizePhone(input: string, countryCode: string, label: string) {
+  const trimmed = input.trim()
+  if (!trimmed) return { ok: true as const, value: "" }
+  if (countryCode === "IN") {
+    const value = normalizeIndianMobile(trimmed)
+    if (!value) {
+      return { ok: false as const, error: `${label} should be a 10-digit mobile number.` }
+    }
+    return { ok: true as const, value }
+  }
+  const digits = trimmed.replace(/\D/g, "")
+  if (digits.length < 6 || digits.length > 15) {
+    return { ok: false as const, error: `${label} should be 6 to 15 digits.` }
+  }
+  return { ok: true as const, value: digits }
+}
+
 export function parseProfile(formData: FormData) {
   const schema = z.object({
     name: z.string().trim().min(2, "Add the salon name.").max(80, "That name is too long."),
-    areaSlug: z.string().trim(),
+    citySlug: z.string().trim().min(1, "Choose a city."),
+    areaSlug: z.string().trim().min(1, "Choose a locality."),
     address: z.string().trim().min(8, "Add a street address.").max(200),
     description: z.string().trim().max(800, "Keep the description under 800 characters."),
     gender: z.enum(GENDERS, { error: "Choose who the salon is for." }),
+    phone: z.string(),
+    whatsapp: z.string(),
   })
   const parsed = schema.safeParse({
     name: String(formData.get("name") ?? ""),
+    citySlug: String(formData.get("citySlug") ?? ""),
     areaSlug: String(formData.get("areaSlug") ?? ""),
     address: String(formData.get("address") ?? ""),
     description: String(formData.get("description") ?? ""),
     gender: String(formData.get("gender") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    whatsapp: String(formData.get("whatsapp") ?? ""),
   })
   if (!parsed.success) return { ok: false as const, error: firstIssue(parsed.error) }
-  if (!getArea(parsed.data.areaSlug)) {
-    return { ok: false as const, error: "Choose a Pune locality from the list." }
-  }
-  const phone = optionalMobile(String(formData.get("phone") ?? ""), "Phone")
-  if (!phone.ok) return phone
-  const whatsapp = optionalMobile(String(formData.get("whatsapp") ?? ""), "WhatsApp")
-  if (!whatsapp.ok) return whatsapp
-  return {
-    ok: true as const,
-    data: { ...parsed.data, phone: phone.value, whatsapp: whatsapp.value },
-  }
+  return { ok: true as const, data: parsed.data }
 }
 
 export function parseService(formData: FormData) {
