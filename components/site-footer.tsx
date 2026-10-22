@@ -40,12 +40,12 @@ export async function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/signup" className="hover:text-foreground">
+              <Link href="/partner/join" className="hover:text-foreground">
                 Create an account
               </Link>
             </li>
             <li>
-              <Link href="/login" className="hover:text-foreground">
+              <Link href="/partner/login" className="hover:text-foreground">
                 Owner login
               </Link>
             </li>

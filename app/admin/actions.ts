@@ -2,22 +2,28 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { getSessionUser } from "@/lib/auth"
+import { getSessionUser, hashMagicToken, newMagicToken } from "@/lib/auth"
+import { EARLY_PARTNER_PROGRAM, GENDERS } from "@/lib/constants"
 import { prisma } from "@/lib/db"
-import { citySlugError, cleanSlug, localitySlugError } from "@/lib/places"
+import { sendClaimMail, smtpConfigured } from "@/lib/mail"
+import { citySlugError, cleanSlug, getLocality, localitySlugError } from "@/lib/places"
+import { defaultHours, refreshSalonSearch, uniqueSlug } from "@/lib/salons"
 import { setRequireApproval } from "@/lib/settings"
+import { appUrl } from "@/lib/urls"
+import { normalizePhone } from "@/lib/validators"
 
 async function requireAdmin() {
   const user = await getSessionUser()
-  if (!user) redirect("/login?next=/admin")
+  if (!user) redirect("/partner/login?next=/admin")
   if (user.role !== "ADMIN") redirect("/")
   return user
 }
 
-function adminRedirect(opts: { notice?: string; error?: string }): never {
+function adminRedirect(opts: { notice?: string; error?: string; claim?: string }): never {
   const params = new URLSearchParams()
   if (opts.notice) params.set("notice", opts.notice)
   if (opts.error) params.set("error", opts.error)
+  if (opts.claim) params.set("claim", opts.claim)
   redirect(`/admin?${params.toString()}`)
 }
 
@@ -142,5 +148,107 @@ export async function updateApprovalMode(formData: FormData) {
     notice: required
       ? "New submissions wait for approval."
       : "New submissions go live as soon as the owner submits.",
+  })
+}
+
+function optionalEmail(value: string) {
+  const email = value.trim().toLowerCase()
+  if (!email) return { ok: true as const, email: "" }
+  if (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false as const, error: "Enter a valid email." }
+  }
+  return { ok: true as const, email }
+}
+
+async function mintClaim(salonId: string, email: string, phone: string) {
+  const token = newMagicToken()
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  await prisma.claimInvite.create({
+    data: { salonId, email, phone, tokenHash: hashMagicToken(token), expiresAt },
+  })
+  return token
+}
+
+export async function createUnclaimedListing(formData: FormData) {
+  await requireAdmin()
+  const name = String(formData.get("name") ?? "").trim()
+  if (name.length < 2 || name.length > 80) adminRedirect({ error: "Add the salon name." })
+  const citySlug = String(formData.get("citySlug") ?? "").trim()
+  const areaSlug = String(formData.get("areaSlug") ?? "").trim()
+  const place = await getLocality(citySlug, areaSlug)
+  if (!place) adminRedirect({ error: "Choose a city and locality from the list." })
+  const address = String(formData.get("address") ?? "").trim()
+  if (address.length < 8 || address.length > 200) adminRedirect({ error: "Add a street address." })
+  const gender = String(formData.get("gender") ?? "UNISEX")
+  if (!(GENDERS as readonly string[]).includes(gender)) adminRedirect({ error: "Choose who the salon is for." })
+  const email = optionalEmail(String(formData.get("email") ?? ""))
+  if (!email.ok) adminRedirect({ error: email.error })
+  const phone = normalizePhone(String(formData.get("phone") ?? ""), place.city.countryCode, "Phone")
+  if (!phone.ok) adminRedirect({ error: phone.error })
+  if (!email.email && !phone.value) {
+    adminRedirect({ error: "Add an email or a phone number so the owner can claim this." })
+  }
+  const slug = await uniqueSlug(citySlug, areaSlug, name)
+  const salon = await prisma.salon.create({
+    data: {
+      ownerId: null,
+      name,
+      slug,
+      citySlug,
+      areaSlug,
+      address,
+      gender,
+      status: "DRAFT",
+      isEarlyPartner: EARLY_PARTNER_PROGRAM,
+      hours: { create: defaultHours() },
+    },
+  })
+  await refreshSalonSearch(salon.id)
+  const token = await mintClaim(salon.id, email.email, phone.value)
+  let mailed = false
+  if (email.email && smtpConfigured()) {
+    try {
+      await sendClaimMail(email.email, salon.name, appUrl(`/partner/claim/${token}`))
+      mailed = true
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  revalidatePath("/admin")
+  const notice = mailed
+    ? `Listing created for ${salon.name}. The claim link was emailed and is shown below. It expires in 7 days.`
+    : `Listing created for ${salon.name}. Copy the claim link below and send it to the owner. It expires in 7 days.`
+  adminRedirect({ notice, claim: `/partner/claim/${token}` })
+}
+
+export async function resendClaim(formData: FormData) {
+  await requireAdmin()
+  const id = String(formData.get("id") ?? "")
+  const salon = await prisma.salon.findUnique({
+    where: { id },
+    include: { claimInvites: { orderBy: { createdAt: "desc" }, take: 1 } },
+  })
+  if (!salon) adminRedirect({ error: "That listing no longer exists." })
+  if (salon.ownerId) adminRedirect({ error: "This listing already has an owner." })
+  const previous = salon.claimInvites[0]
+  if (!previous || (!previous.email && !previous.phone)) {
+    adminRedirect({ error: "This listing has no email or phone to send a claim link to." })
+  }
+  const token = await mintClaim(salon.id, previous.email, previous.phone)
+  let mailed = false
+  if (previous.email && smtpConfigured()) {
+    try {
+      await sendClaimMail(previous.email, salon.name, appUrl(`/partner/claim/${token}`))
+      mailed = true
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  revalidatePath("/admin")
+  adminRedirect({
+    notice: mailed
+      ? `A new claim link for ${salon.name} was emailed and is shown below.`
+      : `A new claim link for ${salon.name} is below. Copy it to the owner.`,
+    claim: `/partner/claim/${token}`,
   })
 }

@@ -10,6 +10,7 @@ export const RESERVED_CITY_SLUGS = new Set([
   "for-salons",
   "icon",
   "login",
+  "partner",
   "robots.txt",
   "signup",
   "sitemap.xml",

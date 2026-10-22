@@ -115,7 +115,7 @@ export async function getSalonBySlug(citySlug: string, areaSlug: string, slug: s
 }
 
 export function viewerCanSee(
-  salon: { status: string; isDemo: boolean; ownerId: string },
+  salon: { status: string; isDemo: boolean; ownerId: string | null },
   viewer: { id: string; role: string } | null,
 ) {
   const publiclyListed = salon.status === "LIVE" && (!salon.isDemo || demoListingsVisible())

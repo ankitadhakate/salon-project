@@ -47,15 +47,16 @@ export function MobileNav({
               Admin
             </Link>
           ) : null}
-          {user ? (
-            <Link className="rounded-lg px-1 py-3" href="/dashboard">
-              Your listing
+          {user && user.role !== "ADMIN" ? (
+            <Link className="rounded-lg px-1 py-3" href="/partner">
+              Partner
             </Link>
-          ) : (
-            <Link className="rounded-lg px-1 py-3" href="/login">
-              Log in
+          ) : null}
+          {!user ? (
+            <Link className="rounded-lg px-1 py-3" href="/partner/login">
+              Owner login
             </Link>
-          )}
+          ) : null}
         </nav>
         {user ? (
           <form action="/auth/logout" method="post">
@@ -68,7 +69,7 @@ export function MobileNav({
           </form>
         ) : (
           <Link
-            href="/for-salons"
+            href="/partner"
             className="inline-flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground"
           >
             List your salon free

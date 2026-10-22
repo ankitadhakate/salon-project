@@ -21,7 +21,7 @@ export async function SiteHeader({ user }: { user: NavUser }) {
         <p className="hidden text-sm text-muted-foreground lg:block">Salon listings</p>
         <div className="ml-auto flex items-center gap-2 sm:gap-5">
           <Link
-            href="/for-salons"
+            href="/partner"
             className={cn(buttonVariants(), "h-9 px-2.5 text-xs sm:h-10 sm:px-3 sm:text-sm")}
           >
             List your salon free
@@ -38,15 +38,11 @@ export async function SiteHeader({ user }: { user: NavUser }) {
                 Admin
               </Link>
             ) : null}
-            {user ? (
-              <Link href="/dashboard" className="hover:text-primary">
-                Your listing
+            {user && user.role !== "ADMIN" ? (
+              <Link href="/partner" className="hover:text-primary">
+                Partner
               </Link>
-            ) : (
-              <Link href="/login" className="hover:text-primary">
-                Log in
-              </Link>
-            )}
+            ) : null}
             {user ? (
               <form action="/auth/logout" method="post">
                 <button type="submit" className="text-muted-foreground hover:text-foreground">

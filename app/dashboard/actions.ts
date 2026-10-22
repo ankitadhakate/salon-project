@@ -18,15 +18,21 @@ import { normalizePhone, parseHours, parsePassword, parseProfile, parseService }
 
 async function requireOwner() {
   const user = await getSessionUser()
-  if (!user) redirect("/login?next=/dashboard")
+  if (!user) redirect("/partner/login?next=/partner")
+  if (user.role !== "OWNER" && user.role !== "ADMIN") redirect("/")
   return user
 }
 
-function dashRedirect(opts: { notice?: string; error?: string }): never {
+function dashRedirect(opts: { notice?: string; error?: string; setup?: boolean }): never {
   const params = new URLSearchParams()
+  if (opts.setup) params.set("step", "photos")
   if (opts.notice) params.set("notice", opts.notice)
   if (opts.error) params.set("error", opts.error)
-  redirect(`/dashboard?${params.toString()}`)
+  redirect(`${opts.setup ? "/partner/setup" : "/partner/edit"}?${params.toString()}`)
+}
+
+function wantsSetup(formData?: FormData) {
+  return Boolean(formData && String(formData.get("next") ?? "") === "setup")
 }
 
 function touchPublic(citySlug: string, areaSlug: string, slug: string) {
@@ -38,6 +44,8 @@ function touchPublic(citySlug: string, areaSlug: string, slug: string) {
   revalidatePath("/sitemap.xml")
   revalidatePath("/admin")
   revalidatePath("/dashboard")
+  revalidatePath("/partner")
+  revalidatePath("/partner/edit")
 }
 
 export async function saveProfile(formData: FormData) {
@@ -190,12 +198,15 @@ export async function uploadPhotos(formData: FormData) {
       order += 1
     }
   } catch (error) {
-    if (error instanceof ImageStorageError) dashRedirect({ error: error.message })
+    if (error instanceof ImageStorageError) dashRedirect({ error: error.message, setup: wantsSetup(formData) })
     console.error(error)
-    dashRedirect({ error: "Couldn't upload that photo." })
+    dashRedirect({ error: "Couldn't upload that photo.", setup: wantsSetup(formData) })
   }
   touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
-  dashRedirect({ notice: files.length === 1 ? "Photo added." : "Photos added." })
+  dashRedirect({
+    notice: files.length === 1 ? "Photo added." : "Photos added.",
+    setup: wantsSetup(formData),
+  })
 }
 
 export async function deletePhoto(formData: FormData) {
@@ -224,18 +235,22 @@ export async function makeCover(formData: FormData) {
   dashRedirect({ notice: "Cover photo updated." })
 }
 
-export async function submitListing() {
+export async function submitListing(formData?: FormData) {
   const user = await requireOwner()
+  const setup = wantsSetup(formData)
   const salon = await getOwnerSalon(user.id)
-  if (!salon) dashRedirect({ error: "Save your salon details first." })
+  if (!salon) dashRedirect({ error: "Save your salon details first.", setup })
   if (salon.name.trim().length < 2 || salon.address.trim().length < 8) {
-    dashRedirect({ error: "Add the salon name and address before submitting." })
+    dashRedirect({ error: "Add the salon name and address before submitting.", setup })
   }
   if (!salon.whatsapp) {
-    dashRedirect({ error: "Add a WhatsApp number so customers can reach you." })
+    dashRedirect({ error: "Add a WhatsApp number so customers can reach you.", setup })
   }
   if (salon.services.length === 0) {
-    dashRedirect({ error: "Add at least one service with a price." })
+    dashRedirect({ error: "Add at least one service with a price.", setup })
+  }
+  if (setup && salon.photos.length < 3) {
+    dashRedirect({ error: "Add at least 3 photos before you submit.", setup: true })
   }
   if (salon.status === "LIVE") {
     dashRedirect({ notice: "This listing is already live. Edits show on the public page." })
@@ -244,11 +259,11 @@ export async function submitListing() {
   const status = requireApproval ? "PENDING" : "LIVE"
   await prisma.salon.update({ where: { id: salon.id }, data: { status } })
   touchPublic(salon.citySlug, salon.areaSlug, salon.slug)
-  dashRedirect({
-    notice: requireApproval
-      ? "Submitted. A reviewer will make it public after a quick check."
-      : "Your listing is live.",
-  })
+  const notice = requireApproval
+    ? "Submitted. It waits in the review queue before customers can see it."
+    : "Your listing is live."
+  if (setup) redirect(`/partner?notice=${encodeURIComponent(notice)}`)
+  dashRedirect({ notice })
 }
 
 export async function setPassword(formData: FormData) {

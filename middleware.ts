@@ -11,11 +11,11 @@ function withRobots(response: NextResponse) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const gated = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+  const gated = pathname.startsWith("/admin") || pathname.startsWith("/partner/edit")
   if (!gated) return withRobots(NextResponse.next())
 
   const token = request.cookies.get(SESSION_COOKIE)?.value
-  const login = new URL("/login", request.url)
+  const login = new URL("/partner/login", request.url)
   login.searchParams.set("next", pathname)
 
   if (!token) return withRobots(NextResponse.redirect(login))

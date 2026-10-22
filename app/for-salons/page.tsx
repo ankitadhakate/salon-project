@@ -26,7 +26,7 @@ const faqs = [
   },
   {
     q: "When does the page go live?",
-    a: "You submit the listing. A person checks that it looks like a real salon, then it becomes public. The admin can turn that review off later so new listings go live immediately.",
+    a: "Setup takes about five minutes: account, salon, contact, services, and at least three photos. You submit the listing. A person checks that it looks like a real salon, then it becomes public. The admin can turn that review off later so new listings go live immediately.",
   },
   {
     q: "Can I change prices?",
@@ -45,7 +45,7 @@ export default async function ForSalonsPage({
 }) {
   const ref = (await searchParams).ref?.trim() ?? ""
   const safeRef = /^[A-Za-z0-9-]{0,32}$/.test(ref) ? ref : ""
-  const signupHref = safeRef ? `/signup?ref=${encodeURIComponent(safeRef)}` : "/signup"
+  const signupHref = safeRef ? `/partner/join?ref=${encodeURIComponent(safeRef)}` : "/partner/join"
   const name = siteName()
 
   return (
@@ -64,7 +64,7 @@ export default async function ForSalonsPage({
             <Link href={signupHref} className={cn(buttonVariants(), "h-12 px-5 text-base")}>
               Create your free listing
             </Link>
-            <Link href="/login" className={cn(buttonVariants({ variant: "outline" }), "h-12 px-5 text-base")}>
+            <Link href="/partner/login" className={cn(buttonVariants({ variant: "outline" }), "h-12 px-5 text-base")}>
               I already have an account
             </Link>
           </div>
@@ -94,8 +94,8 @@ export default async function ForSalonsPage({
         <h2 className="font-heading text-3xl">How it works</h2>
         <ol className="mt-4 grid gap-4">
           {[
-            ["Create an account", "Email and password, or an email link if you don't want to remember a password. Add a referral code if someone invited you."],
-            ["Write the listing", "Name, locality, address, photos, opening hours, and the services you actually sell."],
+            ["Create an account", "About five minutes, in short steps. Email and password, or an email link. Add a referral code if someone invited you."],
+            ["Write the listing", "Name, locality, a WhatsApp number, the services you tick from a price list, and at least three photos."],
             ["Submit it", "It stays private until it's approved. You'll see the status on your dashboard."],
             ["Show up in your area", "Your page lives at /your-city/your-area/your-salon and appears when people search that locality."],
           ].map(([title, body], index) => (

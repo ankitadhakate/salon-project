@@ -1,5 +1,6 @@
 import { formatPhone, mapsHref, whatsAppHref } from "@/lib/format"
 import { siteName } from "@/lib/site"
+import { TrackedLink } from "@/components/tracked-link"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +13,7 @@ export function ContactActions({
   layout = "stack",
   place = "",
   dialCode = "91",
+  salonId = "",
 }: {
   name: string
   phone: string
@@ -21,6 +23,7 @@ export function ContactActions({
   layout?: "stack" | "bar"
   place?: string
   dialCode?: string
+  salonId?: string
 }) {
   if (demo) {
     const note = "Sample listing. WhatsApp and call are switched off so this demo never messages a real number."
@@ -46,19 +49,25 @@ export function ContactActions({
     return (
       <div className="flex gap-2">
         {whatsapp ? (
-          <a
+          <TrackedLink
+            salonId={salonId}
+            kind="whatsapps"
             href={whatsAppHref(whatsapp, name, siteName(), dialCode)}
-            target="_blank"
-            rel="noopener noreferrer"
+            external
             className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-whatsapp px-4 text-base font-medium text-white"
           >
             WhatsApp
-          </a>
+          </TrackedLink>
         ) : null}
         {phone ? (
-          <a href={callHref} className={cn(buttonVariants({ variant: "outline" }), "h-12 flex-1 px-4 text-base")}>
+          <TrackedLink
+            salonId={salonId}
+            kind="calls"
+            href={callHref}
+            className={cn(buttonVariants({ variant: "outline" }), "h-12 flex-1 px-4 text-base")}
+          >
             Call
-          </a>
+          </TrackedLink>
         ) : null}
       </div>
     )
@@ -66,28 +75,35 @@ export function ContactActions({
   return (
     <div className="grid gap-2">
       {whatsapp ? (
-        <a
+        <TrackedLink
+          salonId={salonId}
+          kind="whatsapps"
           href={whatsAppHref(whatsapp, name, siteName(), dialCode)}
-          target="_blank"
-          rel="noopener noreferrer"
+          external
           className="inline-flex h-12 items-center justify-center rounded-xl bg-whatsapp px-4 text-base font-medium text-white"
         >
           WhatsApp {formatPhone(whatsapp, dialCode)}
-        </a>
+        </TrackedLink>
       ) : null}
       {phone ? (
-        <a href={callHref} className={cn(buttonVariants({ variant: "outline" }), "h-12 text-base")}>
+        <TrackedLink
+          salonId={salonId}
+          kind="calls"
+          href={callHref}
+          className={cn(buttonVariants({ variant: "outline" }), "h-12 text-base")}
+        >
           Call {formatPhone(phone, dialCode)}
-        </a>
+        </TrackedLink>
       ) : null}
-      <a
+      <TrackedLink
+        salonId={salonId}
+        kind="directions"
         href={mapsHref(address, place)}
-        target="_blank"
-        rel="noopener noreferrer"
+        external
         className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
         Directions
-      </a>
+      </TrackedLink>
     </div>
   )
 }

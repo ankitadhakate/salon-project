@@ -88,8 +88,9 @@ model ServiceGuide {
 // gender: MEN | WOMEN | UNISEX
 model Salon {
   id             String        @id @default(cuid())
-  ownerId        String        @unique
-  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // Null until an owner claims a listing the team created.
+  ownerId        String?       @unique
+  owner          User?         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   citySlug       String
   city           City          @relation(fields: [citySlug], references: [slug])
   name           String
@@ -112,6 +113,8 @@ model Salon {
   photos         Photo[]
   services       Service[]
   hours          OpeningHour[]
+  stats          SalonStat[]
+  claimInvites   ClaimInvite[]
 
   @@unique([citySlug, areaSlug, slug])
   @@index([status, citySlug, areaSlug])
@@ -161,4 +164,33 @@ model OpeningHour {
 model SiteSetting {
   key   String @id
   value String
+}
+
+// Daily totals only. No visitor id, IP, or account is stored.
+model SalonStat {
+  id         String   @id @default(cuid())
+  salonId    String
+  salon      Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  day        DateTime @db.Date
+  views      Int      @default(0)
+  calls      Int      @default(0)
+  whatsapps  Int      @default(0)
+  directions Int      @default(0)
+
+  @@unique([salonId, day])
+  @@index([salonId])
+}
+
+model ClaimInvite {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  salonId   String
+  salon     Salon     @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  email     String    @default("")
+  phone     String    @default("")
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([salonId])
 }

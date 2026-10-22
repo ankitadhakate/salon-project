@@ -21,6 +21,7 @@ import { robotsFor } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
 import { getSalonBySlug, viewerCanSee } from "@/lib/salons"
 import { siteName } from "@/lib/site"
+import { recordStat } from "@/lib/stats"
 import { appUrl } from "@/lib/urls"
 
 type Props = { params: Promise<{ city: string; locality: string; salon: string }> }
@@ -52,6 +53,9 @@ export default async function SalonPage({ params }: Props) {
   const viewer = await getSessionUser()
   const access = viewerCanSee(salon, viewer)
   if (!access.visible) notFound()
+  if (!access.preview) {
+    void recordStat(salon.id, "views").catch(() => undefined)
+  }
 
   const groups = new Map<string, typeof salon.services>()
   for (const category of SERVICE_CATEGORIES) groups.set(category, [])
@@ -246,6 +250,7 @@ export default async function SalonPage({ params }: Props) {
               demo={salon.isDemo}
               place={place}
               dialCode={salon.city.dialCode}
+              salonId={salon.id}
             />
             <p className="mt-4 text-xs text-muted-foreground">
               {brand} doesn&apos;t take the booking or a fee. You&apos;re messaging the salon
@@ -265,6 +270,7 @@ export default async function SalonPage({ params }: Props) {
             demo={salon.isDemo}
             place={place}
             dialCode={salon.city.dialCode}
+            salonId={salon.id}
             layout="bar"
           />
         </div>

@@ -71,21 +71,30 @@ When indexing is on, a city, locality, or service page is still left out unless 
 - the team has saved a non-empty intro for that page in `/admin`
 - it has at least `INDEX_MIN_SALONS` approved listings that are not samples (default 8)
 
-Home and `/for-salons` can be indexed once the flag is on. Login, signup, the owner dashboard, and the admin stay `noindex`.
+Home and `/for-salons` can be indexed once the flag is on. The partner area, old login and signup URLs, and the admin stay `noindex`.
 
 ## Owner flow
 
-1. Open `/for-salons` and create an account (password, or an email link).
-2. Optional referral code is stored on the account and copied onto the listing.
-3. On `/dashboard`, pick a city and a locality, then add the salon, services and prices, hours, photos, and WhatsApp number.
-4. Submit. With the default review setting, the listing stays pending until an admin approves it.
-5. The public page is `/<city>/<locality>/<salon-slug>`.
+Customers browse with no account. Owners use `/partner`.
+
+1. Open `/partner` or `/for-salons` and start setup. It is five short steps: account, salon, contact, services, photos. About five minutes.
+2. Each category offers common services with suggested prices. Tick them, then edit the price. At least three photos are required before submit.
+3. Optional referral code is stored on the account and copied onto the listing.
+4. Submit. With the default review setting, the listing stays pending until an admin approves it. Edits to a listing that is already live stay on the public page.
+5. The partner dashboard shows listing views, call taps, WhatsApp taps, and direction taps for today and in total. Those are daily counts only.
+6. The public page is `/<city>/<locality>/<salon-slug>`. The dashboard also shows a phone-sized preview.
+
+`/login`, `/signup`, and `/dashboard` redirect into the partner area.
+
+## Claim a listing
+
+On `/admin`, the team can create a draft with no owner and an email or phone. The page shows a claim link (and emails it when SMTP is set). The owner opens `/partner/claim/<token>`, confirms that contact, sets a password or logs into an existing partner account, and takes over the draft. Submitting it still enters the review queue. The link expires in 7 days.
 
 One listing per account. The web address is chosen from the name the first time you save it and does not change if you rename the salon later. Changing city or locality keeps the name unique inside the new place.
 
 ## Admin
 
-`/admin` lists signups (with referral codes) and listings. Approve, hide, or mark pending. The checkbox "Require a review before a listing goes live" is the approval toggle. Turn it off and the next submission goes straight to live. Already-live edits stay live either way.
+`/admin` lists signups (with referral codes) and listings. Unclaimed listings say Unclaimed. Approve, hide, or mark pending. The checkbox "Require a review before a listing goes live" is the approval toggle. Turn it off and the next submission goes straight to live. Already-live edits stay live either way.
 
 The same page adds cities, localities, and service pages, and stores the intros that decide whether those pages can be indexed.
 
@@ -104,7 +113,7 @@ See `.env.example`. Production rejects the development secret, the development a
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed creates the admin. |
 | `AUTO_APPROVE_LISTINGS` | If `true` before the setting exists, new submissions skip review. The admin screen overrides this afterwards. |
 | `SHOW_DEMO_LISTINGS` | Force sample listings on or off. |
-| `SMTP_*` | Sends magic-link email. Without it, development prints the link on the login screen. Production asks the owner to use a password instead of showing the link. |
+| `SMTP_*` | Sends magic-link and claim email. Without it, development prints the sign-in link on the login screen, and the admin copies the claim link. Production asks the owner to use a password instead of showing a magic link. |
 | `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. |
 | `ACTION_ALLOWED_ORIGINS` | Extra hosts allowed to POST server actions, if a proxy presents a different host. |
 

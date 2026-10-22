@@ -67,14 +67,29 @@ async function issueLink(userId: string, email: string) {
   } satisfies MagicState
 }
 
+function accountError(formData: FormData, error: string): never {
+  const ref = String(formData.get("referralCode") ?? "").trim()
+  const params = new URLSearchParams()
+  params.set("step", "account")
+  params.set("error", error)
+  if (/^[A-Za-z0-9-]{1,32}$/.test(ref)) params.set("ref", ref)
+  redirect(`/partner/setup?${params.toString()}`)
+}
+
+function loginBack(next: string, error?: string) {
+  const params = new URLSearchParams()
+  if (next) params.set("next", next)
+  if (error) params.set("error", error)
+  const query = params.toString()
+  return query ? `/partner/login?${query}` : "/partner/login"
+}
+
 export async function signup(formData: FormData) {
   const existing = await getSessionUser()
-  if (existing) redirect(existing.role === "ADMIN" ? "/admin" : "/dashboard")
+  if (existing) redirect(existing.role === "ADMIN" ? "/admin" : "/partner")
 
   const parsed = parseSignup(formData)
-  if (!parsed.ok) {
-    redirect(`/signup?error=${encodeURIComponent(parsed.error)}`)
-  }
+  if (!parsed.ok) accountError(formData, parsed.error)
 
   try {
     const user = await prisma.user.create({
@@ -89,32 +104,27 @@ export async function signup(formData: FormData) {
     await createSession(user.id, user.role)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      redirect(
-        `/signup?error=${encodeURIComponent("That email is already registered. Log in instead.")}`,
-      )
+      accountError(formData, "That email is already registered. Log in instead.")
     }
     throw error
   }
-  redirect("/dashboard")
+  redirect("/partner/setup?step=salon")
 }
 
 export async function login(formData: FormData) {
   const parsed = parseLogin(formData)
   const next = safeNextPath(String(formData.get("next") ?? ""))
-  const back = next ? `/login?next=${encodeURIComponent(next)}` : "/login"
-  if (!parsed.ok) redirect(`${back}${back.includes("?") ? "&" : "?"}error=${encodeURIComponent(parsed.error)}`)
+  if (!parsed.ok) redirect(loginBack(next, parsed.error))
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } })
   const matches =
     user?.passwordHash && (await verifyPassword(parsed.data.password, user.passwordHash))
   if (!user || !matches) {
-    redirect(
-      `${back}${back.includes("?") ? "&" : "?"}error=${encodeURIComponent("That email and password don't match.")}`,
-    )
+    redirect(loginBack(next, "That email and password don't match."))
   }
   await createSession(user.id, user.role)
   if (next) redirect(next)
-  redirect(user.role === "ADMIN" ? "/admin" : "/dashboard")
+  redirect(user.role === "ADMIN" ? "/admin" : "/partner")
 }
 
 export async function requestLoginLink(_prev: MagicState, formData: FormData): Promise<MagicState> {

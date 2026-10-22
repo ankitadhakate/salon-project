@@ -7,6 +7,8 @@ const extraOrigins = (process.env.ACTION_ALLOWED_ORIGINS || "")
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The dev indicator sits on top of the pinned Call and WhatsApp bar.
+  devIndicators: false,
   experimental: {
     serverActions: {
       bodySizeLimit: "6mb",

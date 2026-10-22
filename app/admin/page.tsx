@@ -1,15 +1,19 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { setListingStatus, updateApprovalMode } from "@/app/admin/actions"
+import { createUnclaimedListing, resendClaim, setListingStatus, updateApprovalMode } from "@/app/admin/actions"
 import { AdminDirectory } from "@/components/admin-directory"
+import { CityLocalityFields } from "@/components/city-locality-fields"
 import { Badge } from "@/components/ui/badge"
 import { Flash } from "@/components/flash"
 import { SubmitButton } from "@/components/submit-button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { allowIndexing, indexMinSalons } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { formatWhen, genderLabel, statusLabel } from "@/lib/format"
 import { getRequireApproval } from "@/lib/settings"
+import { appUrl } from "@/lib/urls"
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -19,11 +23,12 @@ export const metadata: Metadata = {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notice?: string; error?: string }>
+  searchParams: Promise<{ notice?: string; error?: string; claim?: string }>
 }) {
   const user = await getSessionUser()
   if (!user || user.role !== "ADMIN") return null
   const sp = await searchParams
+  const claimPath = sp.claim && /^\/partner\/claim\/[a-f0-9]{64}$/.test(sp.claim) ? sp.claim : ""
   const [requireApproval, salons, owners, cities, realLive] = await Promise.all([
     getRequireApproval(),
     prisma.salon.findMany({
@@ -104,6 +109,56 @@ export default async function AdminPage({
         <SubmitButton className="mt-4 h-10 px-3">Save approval setting</SubmitButton>
       </form>
 
+      <h2 className="mt-10 font-heading text-3xl">Create a listing for a salon</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        The salon has no owner yet. Add an email or a phone number, then send the claim link. The owner
+        verifies that contact, takes over the draft, and edits it. Submitting still waits in this queue.
+      </p>
+      {claimPath ? (
+        <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm break-all">
+          Claim link: {appUrl(claimPath)}
+        </p>
+      ) : null}
+      <form action={createUnclaimedListing} className="mt-4 grid gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="grid gap-1.5">
+          <Label htmlFor="claim-name">Salon name</Label>
+          <Input id="claim-name" name="name" required className="h-12 px-3 text-base md:text-base" />
+        </div>
+        <CityLocalityFields
+          cities={cities.map((city) => ({
+            slug: city.slug,
+            name: city.name,
+            localities: city.localities.map((area) => ({ slug: area.slug, name: area.name })),
+          }))}
+        />
+        <div className="grid gap-1.5">
+          <Label htmlFor="claim-address">Street address</Label>
+          <Input id="claim-address" name="address" required className="h-12 px-3 text-base md:text-base" />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="claim-gender">Who is it for?</Label>
+          <select
+            id="claim-gender"
+            name="gender"
+            defaultValue="UNISEX"
+            className="h-12 w-full rounded-lg border border-input bg-card px-3 text-base"
+          >
+            <option value="UNISEX">Everyone</option>
+            <option value="WOMEN">Women</option>
+            <option value="MEN">Men</option>
+          </select>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="claim-email">Owner email</Label>
+          <Input id="claim-email" name="email" type="email" className="h-12 px-3 text-base md:text-base" />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="claim-phone">Owner phone</Label>
+          <Input id="claim-phone" name="phone" inputMode="tel" placeholder="Email or phone is enough" className="h-12 px-3 text-base md:text-base" />
+        </div>
+        <SubmitButton className="h-12 text-base">Create listing and claim link</SubmitButton>
+      </form>
+
       <h2 className="mt-10 font-heading text-3xl">Listings</h2>
       {salons.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">No listings yet.</p>
@@ -115,7 +170,7 @@ export default async function AdminPage({
                 <div>
                   <p className="font-heading text-2xl">{salon.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {salon.areaSlug} · {genderLabel(salon.gender)} · {salon.owner.email}
+                    {salon.areaSlug} · {genderLabel(salon.gender)} · {salon.owner?.email ?? "Unclaimed"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -152,6 +207,14 @@ export default async function AdminPage({
                     <input type="hidden" name="status" value="PENDING" />
                     <SubmitButton variant="outline" className="h-10 px-3">
                       Mark pending
+                    </SubmitButton>
+                  </form>
+                ) : null}
+                {!salon.owner ? (
+                  <form action={resendClaim}>
+                    <input type="hidden" name="id" value={salon.id} />
+                    <SubmitButton variant="outline" className="h-10 px-3">
+                      New claim link
                     </SubmitButton>
                   </form>
                 ) : null}
