@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3847:3847"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:/data/saj.db
+      NODE_ENV: production
+    volumes:
+      - saj-data:/data
+      - saj-uploads:/app/public/uploads
+    restart: unless-stopped
+
+volumes:
+  saj-data:
+  saj-uploads:

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8C3A2E"/>
+      <stop offset="100%" stop-color="#E7B15A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <g fill="#FFF8F1" opacity="0.12">
+          <circle cx="980" cy="180" r="180"/>
+          <circle cx="160" cy="640" r="200"/>
+        </g>
+        <text x="80" y="430" fill="#FFF8F1" font-family="Georgia, serif" font-size="64">From ₹800</text>
+  <text x="80" y="96" fill="#FFF8F1" font-family="ui-sans-serif, sans-serif" font-size="18" letter-spacing="6">SAMPLE LISTING</text>
+  <text x="80" y="520" fill="#FFF8F1" font-family="Georgia, serif" font-size="42">Saffron Atelier</text>
+         <text x="80" y="580" fill="#FFF8F1" opacity="0.8" font-family="ui-sans-serif, sans-serif" font-size="24">Sample artwork, not a photograph</text>
+</svg>
