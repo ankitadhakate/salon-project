@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import test from "node:test"
-import { cacheControlFor, IMMUTABLE_CACHE, PRIVATE_NO_STORE, PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, varyForCache } from "./cache-control"
+import { cacheControlFor, IMMUTABLE_CACHE, PRIVATE_NO_STORE, PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, SUGGEST_CACHE, varyForCache } from "./cache-control"
 
 const anon = { method: "GET", hasSession: false, preview: false }
 
@@ -39,6 +39,10 @@ test("owner, auth, and session responses are private", () => {
   assert.equal(cacheControlFor({ ...anon, pathname: "/example-city/central/atelier", preview: true }), PRIVATE_NO_STORE)
   assert.equal(cacheControlFor({ ...anon, method: "POST", pathname: "/" }), PRIVATE_NO_STORE)
   assert.equal(varyForCache(PRIVATE_NO_STORE), null)
+  assert.equal(cacheControlFor({ ...anon, pathname: "/api/suggest" }), SUGGEST_CACHE)
+  assert.equal(SUGGEST_CACHE, "public, s-maxage=60")
+  assert.equal(cacheControlFor({ ...anon, pathname: "/api/suggest", hasSession: true }), SUGGEST_CACHE)
+  assert.equal(varyForCache(SUGGEST_CACHE), null)
 })
 
 test("firebase hosting caches hashed assets and uploaded photos as immutable", () => {

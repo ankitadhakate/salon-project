@@ -7,7 +7,27 @@ export type NearQuery = {
   km: number | null
 }
 
-const RADIUS = new Set([2, 5, 10])
+export const MIN_RADIUS_KM = 2
+export const MAX_RADIUS_KM = 20
+
+/** Keeps a crafted `km` inside the radii the directory actually offers. */
+export function clampRadiusKm(km: number | null | undefined) {
+  if (km == null || !Number.isFinite(km) || km <= 0) return null
+  return Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, km))
+}
+
+/** Degrees of latitude and longitude that cover `km` around a point. */
+export function boundingBox(lat: number, lng: number, km: number) {
+  const deltaLat = km / 111
+  const cosine = Math.cos((lat * Math.PI) / 180)
+  const deltaLng = km / (111 * (Math.abs(cosine) || 1e-6))
+  return {
+    minLat: lat - deltaLat,
+    maxLat: lat + deltaLat,
+    minLng: lng - deltaLng,
+    maxLng: lng + deltaLng,
+  }
+}
 
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const toRad = (value: number) => (value * Math.PI) / 180
@@ -37,8 +57,7 @@ export function parseNear(sp: SearchParams): NearQuery | null {
   const lat = coord(searchParam(sp, "lat"), -90, 90)
   const lng = coord(searchParam(sp, "lng"), -180, 180)
   if (lat == null || lng == null) return null
-  const kmRaw = Number(searchParam(sp, "km"))
-  const km = RADIUS.has(kmRaw) ? kmRaw : null
+  const km = clampRadiusKm(Number(searchParam(sp, "km")))
   return { lat, lng, km }
 }
 
@@ -51,7 +70,7 @@ export function widenNearHref(path: string, sp: SearchParams, near: NearQuery) {
   }
   params.set("lat", near.lat.toFixed(5))
   params.set("lng", near.lng.toFixed(5))
-  const next = near.km === 2 ? 5 : near.km === 5 ? 10 : null
+  const next = near.km === 2 ? 5 : near.km === 5 ? 10 : near.km === 10 ? 20 : null
   if (next) params.set("km", String(next))
   return `${path}?${params.toString()}`
 }

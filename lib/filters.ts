@@ -15,7 +15,23 @@ const BAND_RANGE: Record<string, { min?: number; max?: number }> = {
   "5000-plus": { min: 5000 },
 }
 
-export type SortKey = "" | "price-asc" | "price-desc" | "nearest"
+/** Directory load-more uses `take = page * pageSize`, so a huge page is a huge read. */
+export const MAX_LIST_PAGE = 20
+
+/** Above the published bands. Stops a crafted price from widening the comparison. */
+export const MAX_PRICE_INR = 100_000
+
+export function clampPage(page: number) {
+  if (!Number.isFinite(page) || page < 1) return 1
+  return Math.min(Math.floor(page), MAX_LIST_PAGE)
+}
+
+export function clampPriceInr(value: number | undefined) {
+  if (value == null || !Number.isFinite(value)) return undefined
+  return Math.min(MAX_PRICE_INR, Math.max(0, Math.round(value)))
+}
+
+export type SortKey = "" | "price-asc" | "price-desc" | "nearest" | "relevance"
 
 export type PublicFilters = {
   service: string
@@ -46,17 +62,20 @@ export function parseFilters(sp: SearchParams): PublicFilters {
   const priceRaw = searchParam(sp, "price")
   const price = priceRaw in BAND_RANGE ? priceRaw : ""
   const range = BAND_RANGE[price] ?? {}
+  const minPrice = clampPriceInr(range.min)
+  const maxPrice = clampPriceInr(range.max)
   const sortRaw = searchParam(sp, "sort")
   const sort: SortKey =
-    sortRaw === "price-asc" || sortRaw === "price-desc" || sortRaw === "nearest" ? sortRaw : ""
-  const pageRaw = Number.parseInt(searchParam(sp, "page"), 10)
-  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? Math.min(pageRaw, 50) : 1
+    sortRaw === "price-asc" || sortRaw === "price-desc" || sortRaw === "nearest" || sortRaw === "relevance"
+      ? sortRaw
+      : ""
+  const page = clampPage(Number.parseInt(searchParam(sp, "page"), 10))
   return {
     service,
     gender,
     price,
-    minPrice: range.min,
-    maxPrice: range.max,
+    minPrice,
+    maxPrice,
     open: searchParam(sp, "open") === "1",
     sort,
     page,

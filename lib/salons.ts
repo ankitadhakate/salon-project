@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { openNowClock } from "@/lib/format"
+import { clampPriceInr, clampPage } from "@/lib/filters"
+import { boundingBox, clampRadiusKm } from "@/lib/geo"
 
 const placeInclude = {
   city: { select: { slug: true, name: true, timezone: true, dialCode: true, countryCode: true } },
@@ -48,9 +50,13 @@ export type SalonQuery = {
   minPrice?: number
   maxPrice?: number
   open?: boolean
-  sort?: "" | "price-asc" | "price-desc" | "nearest"
+  sort?: "" | "price-asc" | "price-desc" | "nearest" | "relevance"
   page?: number
   pageSize?: number
+  /** `offset` returns one page. The default keeps earlier rows, for the directory's load-more control. */
+  pageMode?: "offset" | "accumulate"
+  text?: string
+  category?: string
   near?: { lat: number; lng: number; km?: number | null } | null
   timeZone?: string
 }
@@ -99,9 +105,14 @@ export function countRealSalons(filter: {
 
 export async function listLiveSalons(query: SalonQuery = {}) {
   const pageSize = query.pageSize ?? DIRECTORY_PAGE_SIZE
-  const page = Math.max(1, Math.min(query.page ?? 1, 50))
-  const take = page * pageSize
+  const page = clampPage(query.page ?? 1)
+  const offsetMode = query.pageMode === "offset"
+  const take = offsetMode ? pageSize : page * pageSize
+  const offset = offsetMode ? (page - 1) * pageSize : 0
   const service = query.service?.trim().toLowerCase() ?? ""
+  const text = query.text?.trim().slice(0, 80) ?? ""
+  const minPrice = clampPriceInr(query.minPrice)
+  const maxPrice = clampPriceInr(query.maxPrice)
   const conditions: Prisma.Sql[] = [Prisma.sql`s.status = 'LIVE'`]
   if (!demoListingsVisible()) conditions.push(Prisma.sql`s."isDemo" = false`)
   if (query.citySlug) conditions.push(Prisma.sql`s."citySlug" = ${query.citySlug}`)
@@ -110,10 +121,33 @@ export async function listLiveSalons(query: SalonQuery = {}) {
   else if (query.gender === "WOMEN") conditions.push(Prisma.sql`s.gender IN ('WOMEN', 'UNISEX')`)
   else if (query.gender === "UNISEX") conditions.push(Prisma.sql`s.gender = 'UNISEX'`)
   if (service) conditions.push(Prisma.sql`s."searchBlob" LIKE ${likeTerm(service)} ESCAPE '\\'`)
-  if (query.minPrice != null || query.maxPrice != null) {
+  const textLike = text ? likeTerm(text.toLowerCase()) : ""
+  const rank = text
+    ? Prisma.sql`(
+        ts_rank(to_tsvector('simple', s."searchBlob"), plainto_tsquery('simple', ${text}))
+        + CASE WHEN s.name ILIKE ${textLike} ESCAPE '\\' THEN 0.5 ELSE 0 END
+      )`
+    : Prisma.sql`0::float8`
+  if (text) {
+    conditions.push(Prisma.sql`(
+      to_tsvector('simple', s."searchBlob") @@ plainto_tsquery('simple', ${text})
+      OR s."searchBlob" ILIKE ${textLike} ESCAPE '\\'
+      OR s.name ILIKE ${textLike} ESCAPE '\\'
+      OR EXISTS (
+        SELECT 1 FROM "Locality" loc
+        WHERE loc."citySlug" = s."citySlug" AND loc.slug = s."areaSlug" AND loc.name ILIKE ${textLike} ESCAPE '\\'
+      )
+    )`)
+  }
+  if (query.category) {
+    conditions.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM "Service" sv WHERE sv."salonId" = s.id AND sv.category = ${query.category})`,
+    )
+  }
+  if (minPrice != null || maxPrice != null) {
     const price: Prisma.Sql[] = []
-    if (query.minPrice != null) price.push(Prisma.sql`sv."priceInr" >= ${query.minPrice}`)
-    if (query.maxPrice != null) price.push(Prisma.sql`sv."priceInr" <= ${query.maxPrice}`)
+    if (minPrice != null) price.push(Prisma.sql`sv."priceInr" >= ${minPrice}`)
+    if (maxPrice != null) price.push(Prisma.sql`sv."priceInr" <= ${maxPrice}`)
     conditions.push(
       Prisma.sql`EXISTS (SELECT 1 FROM "Service" sv WHERE sv."salonId" = s.id AND ${Prisma.join(price, " AND ")})`,
     )
@@ -129,14 +163,12 @@ export async function listLiveSalons(query: SalonQuery = {}) {
       )
     )`)
   }
-  const near = query.near
+  const near = query.near ? { ...query.near, km: clampRadiusKm(query.near.km) } : null
   if (near?.km != null) {
-    const deltaLat = near.km / 111
-    const cos = Math.cos((near.lat * Math.PI) / 180) || 1
-    const deltaLng = near.km / (111 * Math.abs(cos))
+    const box = boundingBox(near.lat, near.lng, near.km)
     conditions.push(Prisma.sql`s.latitude IS NOT NULL AND s.longitude IS NOT NULL`)
-    conditions.push(Prisma.sql`s.latitude BETWEEN ${near.lat - deltaLat} AND ${near.lat + deltaLat}`)
-    conditions.push(Prisma.sql`s.longitude BETWEEN ${near.lng - deltaLng} AND ${near.lng + deltaLng}`)
+    conditions.push(Prisma.sql`s.latitude BETWEEN ${box.minLat} AND ${box.maxLat}`)
+    conditions.push(Prisma.sql`s.longitude BETWEEN ${box.minLng} AND ${box.maxLng}`)
   }
   const where = Prisma.join(conditions, " AND ")
   const distance = distanceSql(near)
@@ -151,11 +183,13 @@ export async function listLiveSalons(query: SalonQuery = {}) {
         ? Prisma.sql`listed."startingPrice" DESC NULLS LAST, listed.name ASC`
         : query.sort === "nearest" && near
           ? Prisma.sql`listed.distance_km ASC NULLS LAST, listed.name ASC`
-          : near
-            ? Prisma.sql`listed.distance_km ASC NULLS LAST, listed."isEarlyPartner" DESC, listed.name ASC`
-            : Prisma.sql`listed."isEarlyPartner" DESC, listed.name ASC`
+          : query.sort === "relevance" && text
+            ? Prisma.sql`listed.rank DESC, listed.distance_km ASC NULLS LAST, listed.name ASC`
+            : near
+              ? Prisma.sql`listed.distance_km ASC NULLS LAST, listed."isEarlyPartner" DESC, listed.name ASC`
+              : Prisma.sql`listed."isEarlyPartner" DESC, listed.name ASC`
   const listed = Prisma.sql`
-    SELECT s.id, s.name, s."startingPrice", s."isEarlyPartner", ${distance} AS distance_km
+    SELECT s.id, s.name, s."startingPrice", s."isEarlyPartner", ${distance} AS distance_km, ${rank} AS rank
     FROM "Salon" s
     WHERE ${where}
   `
@@ -166,6 +200,7 @@ export async function listLiveSalons(query: SalonQuery = {}) {
       WHERE ${kmWhere}
       ORDER BY ${order}
       LIMIT ${take + 1}
+      OFFSET ${offset}
     `),
     prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
       SELECT COUNT(*)::int AS count

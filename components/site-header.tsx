@@ -1,6 +1,9 @@
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
+import { LocationPill } from "@/components/location-pill"
 import { MobileNav } from "@/components/mobile-nav"
+import { OmniSearch } from "@/components/omni-search"
+import { ScrollHeader } from "@/components/scroll-header"
 import { listActiveCities } from "@/lib/places"
 import { siteName } from "@/lib/site"
 import { cn } from "@/lib/utils"
@@ -12,17 +15,21 @@ export async function SiteHeader({ user }: { user: NavUser }) {
   const browse = cities[0] ? `/${cities[0].slug}` : "/"
   const name = siteName()
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur">
+    <header className="site-header sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur">
+      <ScrollHeader />
       <div className="h-1 bg-mustard" />
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-3">
-        <Link href="/" className="inline-flex h-11 items-center font-heading text-[1.7rem] leading-none tracking-tight">
+      <div className="header-row mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-3">
+        <Link href="/" className="inline-flex h-11 shrink-0 items-center font-heading text-2xl leading-none tracking-tight sm:text-[1.7rem]">
           {name}
         </Link>
-        <p className="hidden text-sm text-muted-foreground lg:block">Salon listings</p>
+        <LocationPill />
+        <div className="header-search hidden min-w-0 flex-1 md:block">
+          <OmniSearch compact />
+        </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-5">
           <Link
             href="/partner"
-            className={cn(buttonVariants(), "h-11 px-3 text-xs sm:text-sm")}
+            className={cn(buttonVariants(), "hidden h-11 px-3 text-xs sm:inline-flex sm:text-sm")}
           >
             List your salon free
           </Link>
@@ -55,6 +62,9 @@ export async function SiteHeader({ user }: { user: NavUser }) {
             <MobileNav user={user} browseHref={browse} siteName={name} />
           </div>
         </div>
+      </div>
+      <div className="header-search-mobile mx-auto max-w-6xl px-4 pb-3">
+        <OmniSearch compact />
       </div>
     </header>
   )

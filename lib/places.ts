@@ -12,6 +12,7 @@ export const RESERVED_CITY_SLUGS = new Set([
   "login",
   "partner",
   "robots.txt",
+  "search",
   "signup",
   "sitemap.xml",
   "uploads",
