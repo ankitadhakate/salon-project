@@ -42,7 +42,7 @@ export function LocationPrompt({
   useEffect(() => {
     if (mode !== "enter") return
     const term = q.trim()
-    if (term.length < 1) {
+    if (term.length < 2) {
       setPlaces([])
       setRemote([])
       return

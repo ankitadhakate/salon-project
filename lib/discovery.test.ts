@@ -8,7 +8,8 @@ import {
   parseSavedPlace,
   serializePlace,
 } from "./discovery"
-import { boundingBox, formatDistance, haversineKm } from "./geo"
+import { clampPriceInr } from "./filters"
+import { boundingBox, clampRadiusKm, formatDistance, haversineKm } from "./geo"
 import { groupSuggestions, type SuggestHit } from "./suggest"
 
 test("bounding box contains the point and drops a salon past the radius", () => {
@@ -101,6 +102,26 @@ test("suggestions group places, salons, and services", () => {
   assert.equal(groups.places.length, 2)
   assert.equal(groups.salons.length, 1)
   assert.equal(groups.services[0]?.label, "Haircut")
+})
+
+test("a huge page, query, radius, and price are clamped", () => {
+  const parsed = parseDiscovery({
+    q: "h".repeat(200),
+    page: "100000",
+    lat: "18.52000",
+    lng: "73.85000",
+    km: "100000",
+    price: "under-500",
+  })
+  assert.equal(parsed.page, 20)
+  assert.equal(parsed.q.length, 80)
+  assert.equal(parsed.near?.km, 20)
+  assert.equal(parsed.maxPrice, 500)
+  assert.equal(parseDiscovery({ page: "0" }).page, 1)
+  assert.equal(clampRadiusKm(0.1), 2)
+  assert.equal(clampRadiusKm(Number.NaN), null)
+  assert.equal(clampPriceInr(1e12), 100_000)
+  assert.equal(clampPriceInr(-40), 0)
 })
 
 test("an unknown category and a rating param are ignored", () => {

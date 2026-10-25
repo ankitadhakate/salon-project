@@ -35,8 +35,8 @@ function average(
 
 /** Cities and areas first, then salon and service names. One round of queries, no per-row lookups. */
 export async function searchSuggestions(raw: string): Promise<SuggestHit[]> {
-  const term = raw.trim().slice(0, 60)
-  if (term.length < 1) return []
+  const term = raw.trim().slice(0, 80)
+  if (term.length < 2) return []
   const whereSalon = publicSalonWhere()
   const [cities, areas, salons, services] = await Promise.all([
     prisma.city.findMany({

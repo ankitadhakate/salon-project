@@ -7,7 +7,14 @@ export type NearQuery = {
   km: number | null
 }
 
-const RADIUS = new Set([2, 5, 10, 20])
+export const MIN_RADIUS_KM = 2
+export const MAX_RADIUS_KM = 20
+
+/** Keeps a crafted `km` inside the radii the directory actually offers. */
+export function clampRadiusKm(km: number | null | undefined) {
+  if (km == null || !Number.isFinite(km) || km <= 0) return null
+  return Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, km))
+}
 
 /** Degrees of latitude and longitude that cover `km` around a point. */
 export function boundingBox(lat: number, lng: number, km: number) {
@@ -50,8 +57,7 @@ export function parseNear(sp: SearchParams): NearQuery | null {
   const lat = coord(searchParam(sp, "lat"), -90, 90)
   const lng = coord(searchParam(sp, "lng"), -180, 180)
   if (lat == null || lng == null) return null
-  const kmRaw = Number(searchParam(sp, "km"))
-  const km = RADIUS.has(kmRaw) ? kmRaw : null
+  const km = clampRadiusKm(Number(searchParam(sp, "km")))
   return { lat, lng, km }
 }
 

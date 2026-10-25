@@ -71,7 +71,7 @@ export type DiscoveryQuery = PublicFilters & {
 
 export function parseDiscovery(sp: SearchParams): DiscoveryQuery {
   const filters = parseFilters(sp)
-  const q = searchParam(sp, "q").slice(0, 60)
+  const q = searchParam(sp, "q").slice(0, 80)
   const categoryRaw = searchParam(sp, "category")
   const category = (SERVICE_CATEGORIES as readonly string[]).includes(categoryRaw)
     ? (categoryRaw as ServiceCategory)

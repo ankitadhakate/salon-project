@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { openNowClock } from "@/lib/format"
-import { boundingBox } from "@/lib/geo"
+import { clampPriceInr, clampPage } from "@/lib/filters"
+import { boundingBox, clampRadiusKm } from "@/lib/geo"
 
 const placeInclude = {
   city: { select: { slug: true, name: true, timezone: true, dialCode: true, countryCode: true } },
@@ -104,12 +105,14 @@ export function countRealSalons(filter: {
 
 export async function listLiveSalons(query: SalonQuery = {}) {
   const pageSize = query.pageSize ?? DIRECTORY_PAGE_SIZE
-  const page = Math.max(1, Math.min(query.page ?? 1, 50))
+  const page = clampPage(query.page ?? 1)
   const offsetMode = query.pageMode === "offset"
   const take = offsetMode ? pageSize : page * pageSize
   const offset = offsetMode ? (page - 1) * pageSize : 0
   const service = query.service?.trim().toLowerCase() ?? ""
-  const text = query.text?.trim().slice(0, 60) ?? ""
+  const text = query.text?.trim().slice(0, 80) ?? ""
+  const minPrice = clampPriceInr(query.minPrice)
+  const maxPrice = clampPriceInr(query.maxPrice)
   const conditions: Prisma.Sql[] = [Prisma.sql`s.status = 'LIVE'`]
   if (!demoListingsVisible()) conditions.push(Prisma.sql`s."isDemo" = false`)
   if (query.citySlug) conditions.push(Prisma.sql`s."citySlug" = ${query.citySlug}`)
@@ -141,10 +144,10 @@ export async function listLiveSalons(query: SalonQuery = {}) {
       Prisma.sql`EXISTS (SELECT 1 FROM "Service" sv WHERE sv."salonId" = s.id AND sv.category = ${query.category})`,
     )
   }
-  if (query.minPrice != null || query.maxPrice != null) {
+  if (minPrice != null || maxPrice != null) {
     const price: Prisma.Sql[] = []
-    if (query.minPrice != null) price.push(Prisma.sql`sv."priceInr" >= ${query.minPrice}`)
-    if (query.maxPrice != null) price.push(Prisma.sql`sv."priceInr" <= ${query.maxPrice}`)
+    if (minPrice != null) price.push(Prisma.sql`sv."priceInr" >= ${minPrice}`)
+    if (maxPrice != null) price.push(Prisma.sql`sv."priceInr" <= ${maxPrice}`)
     conditions.push(
       Prisma.sql`EXISTS (SELECT 1 FROM "Service" sv WHERE sv."salonId" = s.id AND ${Prisma.join(price, " AND ")})`,
     )
@@ -160,7 +163,7 @@ export async function listLiveSalons(query: SalonQuery = {}) {
       )
     )`)
   }
-  const near = query.near
+  const near = query.near ? { ...query.near, km: clampRadiusKm(query.near.km) } : null
   if (near?.km != null) {
     const box = boundingBox(near.lat, near.lng, near.km)
     conditions.push(Prisma.sql`s.latitude IS NOT NULL AND s.longitude IS NOT NULL`)

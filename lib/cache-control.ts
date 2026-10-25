@@ -7,6 +7,9 @@ export const PUBLIC_PAGE_VARY = "Cookie"
 
 export const PRIVATE_NO_STORE = "private, no-store"
 
+/** Public autocomplete. Suggestions do not vary by session. */
+export const SUGGEST_CACHE = "public, s-maxage=60"
+
 export const IMMUTABLE_CACHE =
   "public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable"
 
@@ -25,6 +28,7 @@ export function cacheControlFor(input: {
   preview: boolean
 }) {
   if (input.method !== "GET" && input.method !== "HEAD") return PRIVATE_NO_STORE
+  if (input.pathname === "/api/suggest") return SUGGEST_CACHE
   if (input.hasSession || input.preview || isPrivatePage(input.pathname)) return PRIVATE_NO_STORE
   return PUBLIC_PAGE_CACHE
 }

@@ -17,7 +17,7 @@ export function OmniSearch({ compact = false, initial = "" }: { compact?: boolea
 
   useEffect(() => {
     const term = q.trim()
-    if (!active || term.length < 1) {
+    if (!active || term.length < 2) {
       if (!active) setHits([])
       return
     }
