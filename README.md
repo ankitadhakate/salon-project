@@ -4,7 +4,7 @@ This is a salon discovery site. People search by city, locality, and service. Sa
 
 The public name comes from `SITE_NAME`. Leave it unset to use the built-in default, LetsTrim. The public origin comes from `NEXT_PUBLIC_APP_URL`. Production uses `https://letstrim.com`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
 
-Deploy steps, cost, and DNS for letstrim.com are in [DEPLOY.md](DEPLOY.md).
+Deploy steps and DNS for letstrim.com are in [DEPLOY.md](DEPLOY.md). Cloud Run and Firebase Hosting are the production host.
 
 ## Stack
 
@@ -12,7 +12,7 @@ Deploy steps, cost, and DNS for letstrim.com are in [DEPLOY.md](DEPLOY.md).
 - Tailwind CSS and shadcn/ui
 - Prisma with PostgreSQL
 - Password sessions, plus email magic links when SMTP is set
-- Images on local disk in development, or S3-compatible storage (Cloudflare R2, AWS, MinIO). Production requires S3.
+- Images on local disk in development. Production uses Cloud Storage with `IMAGE_DRIVER=gcs` and Application Default Credentials. No HMAC key.
 
 ## Run it locally
 
@@ -123,13 +123,12 @@ See `.env.example`. Production rejects the development secret, the development a
 | `AUTO_APPROVE_LISTINGS` | If `true` before the setting exists, new submissions skip review. The admin screen overrides this afterwards. |
 | `SHOW_DEMO_LISTINGS` | Force sample listings on or off. |
 | `SMTP_*` | Sends magic-link email, claim confirmation codes, and contact-number change notes. Without it, development shows the link on screen. Production will not finish a claim, because the confirmation email cannot be sent. |
-| `IMAGE_DRIVER=gcs` plus `GCS_BUCKET` | Cloud Run photos. Application Default Credentials, no HMAC key. `GCS_PUBLIC_URL` is optional. |
-| `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Checksums are sent only when required, which is what Cloudflare R2 accepts. |
+| `IMAGE_DRIVER=gcs` plus `GCS_BUCKET` | Cloud Run photos. Application Default Credentials, no HMAC key. Leave `GCS_PUBLIC_URL` unset so URLs use `storage.googleapis.com`. |
 | `ACTION_ALLOWED_ORIGINS` | Extra hosts allowed to POST server actions, if a proxy presents a different host. |
 
 ## Images
 
-`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads` and is rejected in production. `IMAGE_DRIVER=gcs` uses `@google-cloud/storage` with Application Default Credentials: no key file and no HMAC key. `IMAGE_DRIVER=s3` uses `@aws-sdk/client-s3`. For R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`. The s3 client sets request and response checksums to `WHEN_REQUIRED`. Each uploaded object is stored with a one-year immutable `Cache-Control`. `scripts/pg-dump.sh` still uses the S3 keys when `BACKUP_S3_BUCKET` is set. That dump upload is optional and is separate from photo storage.
+`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads` and is rejected in production. `IMAGE_DRIVER=gcs` uses `@google-cloud/storage` with Application Default Credentials: no key file and no HMAC key. Each uploaded object is stored with a one-year immutable `Cache-Control`, and the public URL is `https://storage.googleapis.com/<bucket>/<object>` unless `GCS_PUBLIC_URL` is set. `scripts/pg-dump.sh` still uses S3 keys when `BACKUP_S3_BUCKET` is set. That dump upload is optional, separate from photo storage, and stays unset on Cloud Run because the org blocks service-account HMAC keys.
 
 Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 
