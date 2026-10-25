@@ -182,7 +182,11 @@ export default async function PartnerSetupPage({
               className={fieldClass}
             />
           </div>
-          <PinPicker latitude={salon?.latitude ?? null} longitude={salon?.longitude ?? null} />
+          <PinPicker
+            latitude={salon?.latitude ?? null}
+            longitude={salon?.longitude ?? null}
+            mapsUrl={salon?.mapsUrl ?? null}
+          />
           <SubmitButton pendingLabel="Saving…" className="h-12 text-base">
             Continue
           </SubmitButton>

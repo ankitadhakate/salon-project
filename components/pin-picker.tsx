@@ -19,15 +19,22 @@ function pinIcon(L: typeof Leaflet) {
 export function PinPicker({
   latitude,
   longitude,
+  mapsUrl = null,
 }: {
   latitude: number | null
   longitude: number | null
+  mapsUrl?: string | null
 }) {
   const [lat, setLat] = useState<number | null>(latitude)
   const [lng, setLng] = useState<number | null>(longitude)
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<Hit[]>([])
   const [status, setStatus] = useState("")
+  const [link, setLink] = useState(mapsUrl ?? "")
+  const [acceptedUrl, setAcceptedUrl] = useState(mapsUrl ?? "")
+  const [linkMessage, setLinkMessage] = useState("")
+  const [linkError, setLinkError] = useState(false)
+  const [linkBusy, setLinkBusy] = useState(false)
   const frameRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -97,6 +104,47 @@ export function PinPicker({
     }
   }
 
+  async function applyMapsLink() {
+    const trimmed = link.trim()
+    if (!trimmed) {
+      setAcceptedUrl("")
+      setLinkError(true)
+      setLinkMessage("Paste a Google Maps link, or search the address.")
+      return
+    }
+    setLinkBusy(true)
+    setLinkError(false)
+    setLinkMessage("Opening that Maps link…")
+    try {
+      const response = await fetch("/api/maps-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      })
+      const data = (await response.json()) as {
+        latitude?: number
+        longitude?: number
+        mapsUrl?: string
+        error?: string
+      }
+      if (!response.ok || data.latitude == null || data.longitude == null) {
+        setLinkError(true)
+        setLinkMessage(data.error || "That Maps link didn't open. Paste the full link, or search the address.")
+        return
+      }
+      setAcceptedUrl(data.mapsUrl || "")
+      if (data.mapsUrl) setLink(data.mapsUrl)
+      setLinkError(false)
+      setLinkMessage("Pin dropped. Drag it if the door is a little off.")
+      movePin(data.latitude, data.longitude)
+    } catch {
+      setLinkError(true)
+      setLinkMessage("That Maps link didn't open. Paste the full link, or search the address.")
+    } finally {
+      setLinkBusy(false)
+    }
+  }
+
   function searchWrittenAddress() {
     const address = (document.getElementById("address") as HTMLInputElement | null)?.value ?? ""
     const city = (document.getElementById("citySlug") as HTMLSelectElement | null)?.selectedOptions[0]?.text ?? ""
@@ -106,8 +154,48 @@ export function PinPicker({
     void search(text)
   }
 
+  const pinState = linkError ? "error" : linkMessage.startsWith("Pin dropped") ? "dropped" : "empty"
+
   return (
     <div className="grid gap-3">
+      <div className="grid gap-1.5">
+        <label htmlFor="maps-link" className="text-sm font-medium">
+          Paste your Google Maps link
+        </label>
+        <p id="maps-link-hint" className="text-sm text-muted-foreground">
+          Open the salon in Google Maps, tap Share, and paste the link here.
+        </p>
+        <input
+          id="maps-link"
+          value={link}
+          onChange={(event) => {
+            setLink(event.target.value)
+            if (acceptedUrl && event.target.value.trim() !== acceptedUrl) setAcceptedUrl("")
+          }}
+          placeholder="https://maps.app.goo.gl/…"
+          autoComplete="off"
+          spellCheck={false}
+          aria-invalid={linkError || undefined}
+          aria-describedby="maps-link-hint maps-link-status"
+          className="h-12 w-full rounded-lg border border-input bg-card px-3 text-base"
+        />
+        <button
+          type="button"
+          onClick={() => void applyMapsLink()}
+          disabled={linkBusy}
+          className="h-12 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-60"
+        >
+          {linkBusy ? "Opening…" : "Use this link"}
+        </button>
+        <p
+          id="maps-link-status"
+          data-pin-state={pinState}
+          role={linkError ? "alert" : undefined}
+          className={linkError ? "text-sm text-destructive" : "text-sm text-muted-foreground"}
+        >
+          {linkMessage}
+        </p>
+      </div>
       <div className="grid gap-1.5">
         <label htmlFor="map-search" className="text-sm font-medium">
           Find the salon on the map
@@ -157,6 +245,7 @@ export function PinPicker({
       </p>
       <input type="hidden" name="latitude" value={lat ?? ""} />
       <input type="hidden" name="longitude" value={lng ?? ""} />
+      <input type="hidden" name="mapsUrl" value={acceptedUrl} />
     </div>
   )
 }

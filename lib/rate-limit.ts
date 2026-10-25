@@ -82,6 +82,13 @@ export function limitClaim(ip: string, inviteKey: string) {
   ])
 }
 
+export function limitMapsLink(ip: string, userId: string) {
+  return allowBoth([
+    { bucket: "maps-link-user", subject: userId, limit: 20, windowMs: 10 * MINUTE },
+    { bucket: "maps-link-ip", subject: ip, limit: 30, windowMs: HOUR },
+  ])
+}
+
 export function limitStats(ip: string) {
   return allowBoth([
     { bucket: "stats-ip-minute", subject: ip, limit: 30, windowMs: MINUTE },

@@ -142,7 +142,11 @@ export function ListingEditor({
               className="h-12 px-3 text-base md:text-base"
             />
           </div>
-          <PinPicker latitude={salon?.latitude ?? null} longitude={salon?.longitude ?? null} />
+          <PinPicker
+            latitude={salon?.latitude ?? null}
+            longitude={salon?.longitude ?? null}
+            mapsUrl={salon?.mapsUrl ?? null}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <PhoneField
               id="whatsapp"

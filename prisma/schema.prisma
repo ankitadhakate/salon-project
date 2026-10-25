@@ -103,6 +103,8 @@ model Salon {
   address        String
   latitude       Float?
   longitude      Float?
+  // Owner-pasted Google Maps link. Directions use this when it is still a Maps URL.
+  mapsUrl        String?
   description    String        @default("")
   phone          String        @default("")
   whatsapp       String        @default("")

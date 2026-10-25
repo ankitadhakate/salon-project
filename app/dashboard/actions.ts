@@ -16,6 +16,7 @@ import { auditListing, reviewNotice } from "@/lib/review"
 import { getImageStorage, ImageStorageError } from "@/lib/storage"
 import { getLocality } from "@/lib/places"
 import { parsePin } from "@/lib/geo"
+import { readMapsUrl } from "@/lib/maps-link"
 import { normalizePhone, parseHours, parsePassword, parseProfile, parseService } from "@/lib/validators"
 
 async function requireOwner() {
@@ -63,6 +64,8 @@ export async function saveProfile(formData: FormData) {
   const profile = { ...parsed.data, phone: phone.value, whatsapp: whatsapp.value }
   const pin = parsePin(formData, false)
   if (!pin.ok) dashRedirect({ error: pin.error })
+  const maps = readMapsUrl(formData)
+  if (!maps.ok) dashRedirect({ error: maps.error })
   const coordinates = pin.empty ? {} : { latitude: pin.latitude, longitude: pin.longitude }
   const existing = await getOwnerSalon(user.id)
 
@@ -77,6 +80,7 @@ export async function saveProfile(formData: FormData) {
         areaSlug: profile.areaSlug,
         address: profile.address,
         ...coordinates,
+        mapsUrl: maps.value,
         description: profile.description,
         gender: profile.gender,
         phone: profile.phone,
@@ -105,6 +109,7 @@ export async function saveProfile(formData: FormData) {
       areaSlug: profile.areaSlug,
       address: profile.address,
       ...coordinates,
+      mapsUrl: maps.value,
       description: profile.description,
       gender: profile.gender,
       phone: profile.phone,
@@ -138,6 +143,7 @@ export async function saveProfile(formData: FormData) {
         oldValue: existing.longitude == null ? "" : String(existing.longitude),
         newValue: pin.empty ? (existing.longitude == null ? "" : String(existing.longitude)) : String(pin.longitude),
       },
+      { field: "mapsUrl", oldValue: existing.mapsUrl ?? "", newValue: maps.value ?? "" },
     ],
   })
   await refreshSalonSearch(salon.id)
