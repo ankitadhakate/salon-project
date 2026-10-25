@@ -32,6 +32,9 @@ fi
 export AWS_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-}"
 export AWS_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-}"
 export AWS_DEFAULT_REGION="${S3_REGION:-auto}"
+# R2 rejects the CLI default flexible checksums. Send a checksum only when required.
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 
 upload() {
   dest="$1"

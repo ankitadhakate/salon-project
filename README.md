@@ -112,7 +112,8 @@ See `.env.example`. Production rejects the development secret, the development a
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | Postgres connection string. |
+| `DATABASE_URL` | Postgres connection string the app uses at runtime. |
+| `DIRECT_URL` | Direct Postgres URL for Prisma Migrate. Same value as `DATABASE_URL` when there is no pooler. |
 | `AUTH_SECRET` | Random string. 16+ characters in development, 32+ in production. Signs the session cookie. |
 | `NEXT_PUBLIC_APP_URL` | Public origin. Cookie is Secure when this is https. |
 | `SITE_NAME` | Brand in the header, titles, and email. Default Saj. |
@@ -122,12 +123,12 @@ See `.env.example`. Production rejects the development secret, the development a
 | `AUTO_APPROVE_LISTINGS` | If `true` before the setting exists, new submissions skip review. The admin screen overrides this afterwards. |
 | `SHOW_DEMO_LISTINGS` | Force sample listings on or off. |
 | `SMTP_*` | Sends magic-link email, claim confirmation codes, and contact-number change notes. Without it, development shows the link on screen. Production will not finish a claim, because the confirmation email cannot be sent. |
-| `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. |
+| `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. Checksums are sent only when required, which is what Cloudflare R2 accepts. |
 | `ACTION_ALLOWED_ORIGINS` | Extra hosts allowed to POST server actions, if a proxy presents a different host. |
 
 ## Images
 
-`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloudflare R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`.
+`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloudflare R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`. The client sets request and response checksums to `WHEN_REQUIRED`, because R2 rejects the SDK default.
 
 Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 
@@ -137,6 +138,7 @@ Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, check
 | --- | --- |
 | `npm run dev` | Dev server on port 3847 |
 | `npm run db:setup` | Apply migrations and seed |
+| `sh scripts/migrate-job.sh` | Apply migrations and, in production, create the admin. Does not seed. Cloud Run runs this as a job. |
 | `npm run db:admin` | Create the admin user only. Safe in production. |
 | `npm run db:clear-demo` | Delete sample listings and sample users |
 | `sh scripts/pg-dump.sh` | Write a Postgres dump. See RESTORE.md. |

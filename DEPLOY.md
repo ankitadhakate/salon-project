@@ -36,12 +36,12 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 ## 3. Render web service
 
 1. New Web Service from this Git repository. Environment: Docker. Region: Singapore. Instance: `0.5c-512mb`.
-2. Leave the Docker command empty so the image command runs: migrate, create the admin if missing, then `next start` on `$PORT`.
+2. Set the Docker command to `sh -c "sh scripts/migrate-job.sh && exec sh scripts/entrypoint.sh"`. Render runs one instance, so that command migrates, creates the admin if missing, then starts Next.js on `$PORT`. The image command alone only starts Next.js. An empty command does not migrate.
 3. Add the environment variables below, then deploy.
 
-The first boot applies `prisma/migrations` and runs `prisma/ensure-admin.ts`. That creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if that user does not exist yet. It does not load cities or sample salons.
+The migrate job applies `prisma/migrations` and runs `prisma/ensure-admin.ts` when `NODE_ENV=production`. That creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if that user does not exist yet. It does not load cities or sample salons.
 
-The sample seed (`npm run db:seed`, and the `prisma.seed` hook) refuses to run when `NODE_ENV=production`. The container entrypoint skips it in production as well. Do not point a production shell at `npm run db:seed`. Add cities, localities, and service pages in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
+The sample seed (`npm run db:seed`, and the `prisma.seed` hook) refuses to run when `NODE_ENV=production`. The migrate job never runs it. Do not point a production shell at `npm run db:seed`. Add cities, localities, and service pages in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
 
 ## Environment variables
 
@@ -49,7 +49,8 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 
 | Name | Value |
 | --- | --- |
-| `DATABASE_URL` | Internal Postgres URL from step 2 |
+| `DATABASE_URL` | Internal Postgres URL from step 2. The app uses this at runtime. |
+| `DIRECT_URL` | Same value as `DATABASE_URL` on Render (no pooler). Prisma Migrate uses this. If you add a pooler later, keep this as the direct URL. |
 | `AUTH_SECRET` | Unique random string, at least 32 characters |
 | `NEXT_PUBLIC_APP_URL` | `https://notsooboring.com` |
 | `SITE_NAME` | `Saj` |
@@ -71,7 +72,57 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 
 Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email, claim confirmation codes, and the note sent when an owner changes a contact number. Without SMTP, owners use their password, and a claim link cannot be finished in production because the confirmation email cannot be sent. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists. Optional: `BACKUP_S3_BUCKET` for `scripts/pg-dump.sh`. It reuses the `S3_*` credentials. See [RESTORE.md](RESTORE.md).
 
-`NODE_ENV=production` is set by Render. You do not need to add it. That value is also what keeps the sample seed from running on boot.
+`NODE_ENV=production` is set by Render. You do not need to add it. The migrate job sees that value and creates the admin without loading sample salons.
+
+Photo uploads and `scripts/pg-dump.sh` send S3 checksums only when the operation requires them. Cloudflare R2 rejects the AWS SDK and CLI default flexible checksums.
+
+## Google Cloud (Cloud Run, Cloud SQL, Firebase Hosting)
+
+Use this instead of the Render steps when the site runs on Google Cloud. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `saj`. Keep `ALLOW_INDEXING` false.
+
+### Image
+
+Build this Dockerfile and push it to Artifact Registry. The build passes placeholder `DATABASE_URL` and `DIRECT_URL` into `prisma generate` only. Those values are not stored in the image. Set the real URLs on the Cloud Run service and on the job.
+
+The image command is `sh scripts/entrypoint.sh`, which only runs `next start` on `$PORT` (Cloud Run sets `PORT`). Do not point the web service at the migrate script. Several replicas would migrate at once.
+
+### Migrate job
+
+Create a Cloud Run Job from the same image. Container command:
+
+```sh
+sh scripts/migrate-job.sh
+```
+
+Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs the same `DATABASE_URL`, `DIRECT_URL`, `NODE_ENV=production`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. In production it applies migrations and creates the admin if that email does not exist yet. It never loads sample salons. If `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
+
+Attach the Cloud SQL instance to both the service and the job.
+
+### Cloud SQL connection strings
+
+Postgres 16, same region as Cloud Run. When there is no pooler, set `DATABASE_URL` and `DIRECT_URL` to the same socket URL. Encode the password.
+
+```
+postgresql://USER:PASSWORD@localhost/DBNAME?host=/cloudsql/PROJECT:REGION:INSTANCE
+```
+
+`REGION` is `asia-south1` for this setup. The app URL can add a pool limit so one instance does not open too many connections:
+
+```
+postgresql://USER:PASSWORD@localhost/DBNAME?host=/cloudsql/PROJECT:REGION:INSTANCE&connection_limit=5
+```
+
+If `DATABASE_URL` goes through a pooler, `DIRECT_URL` stays the direct socket URL above. Prisma Migrate uses `DIRECT_URL`. The running app uses `DATABASE_URL`.
+
+### Firebase Hosting
+
+`firebase.json` rewrites every path to Cloud Run service `saj` in `asia-south1`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
+
+`/_next/static` is cached for one year and marked immutable by the app (`next.config.ts`) and by the matching header in `firebase.json`. HTML stays dynamic. Do not add a Hosting cache rule for `**`.
+
+### R2
+
+Use the same R2 variables as the Render table. The S3 client and the dump upload set checksums to required-only so R2 accepts `PutObject`, `DeleteObject`, and `aws s3 cp`.
 
 ## 4. DNS for notsooboring.com
 

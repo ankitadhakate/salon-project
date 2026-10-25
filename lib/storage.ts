@@ -97,21 +97,29 @@ function requiredEnv(name: string) {
   return value
 }
 
+// R2 rejects the SDK default (WHEN_SUPPORTED) flexible checksums.
+async function s3Client() {
+  const { S3Client } = await import("@aws-sdk/client-s3")
+  return new S3Client({
+    region: process.env.S3_REGION || "auto",
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+    credentials: {
+      accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
+      secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
+    },
+  })
+}
+
 class S3ImageStorage implements ImageStorage {
   async save(file: File): Promise<StoredImage> {
     const buffer = await prepareImage(file)
     const key = `salons/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
     const bucket = requiredEnv("S3_BUCKET")
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3")
-    const client = new S3Client({
-      region: process.env.S3_REGION || "auto",
-      endpoint: process.env.S3_ENDPOINT || undefined,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-      credentials: {
-        accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
-        secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
-      },
-    })
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3")
+    const client = await s3Client()
     await client.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -129,16 +137,8 @@ class S3ImageStorage implements ImageStorage {
 
   async remove(key: string) {
     if (!key || key.startsWith("demo/") || key.includes("..")) return
-    const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3")
-    const client = new S3Client({
-      region: process.env.S3_REGION || "auto",
-      endpoint: process.env.S3_ENDPOINT || undefined,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-      credentials: {
-        accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
-        secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
-      },
-    })
+    const { DeleteObjectCommand } = await import("@aws-sdk/client-s3")
+    const client = await s3Client()
     await client.send(
       new DeleteObjectCommand({
         Bucket: requiredEnv("S3_BUCKET"),

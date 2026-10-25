@@ -25,7 +25,10 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://saj:saj@db:5432/saj
+      DIRECT_URL: postgresql://saj:saj@db:5432/saj
       NODE_ENV: production
+    # One container, so migrate then listen. Cloud Run uses the image command and a separate job.
+    command: ["sh", "-c", "sh scripts/migrate-job.sh && exec sh scripts/entrypoint.sh"]
     depends_on:
       db:
         condition: service_healthy
