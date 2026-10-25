@@ -1,4 +1,4 @@
-# Deploy Saj
+# Deploy
 
 This is the launch setup for [notsooboring.com](https://notsooboring.com). Nothing in this file creates an account or deploys the app. You run the steps.
 
@@ -23,7 +23,7 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 
 ## 1. Photos (Cloudflare R2)
 
-1. Create an R2 bucket, for example `saj-photos`.
+1. Create an R2 bucket, for example `salon-photos`.
 2. Create an API token that can read and write that bucket.
 3. Turn on public access for the bucket, or attach a custom domain such as `images.notsooboring.com`.
 4. Note the S3 endpoint (`https://<accountid>.r2.cloudflarestorage.com`), the bucket name, the access key, the secret, and the public base URL. No trailing slash on the public URL.
@@ -31,7 +31,7 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 ## 2. Render Postgres
 
 1. New Postgres, region Singapore, instance `0.1c-256mb`.
-2. Copy the **internal** connection string. It looks like `postgresql://USER:PASSWORD@dpg-xxx-a/saj`. The web service uses this, not the external URL.
+2. Copy the **internal** connection string. It looks like `postgresql://USER:PASSWORD@dpg-xxx-a/salon`. The web service uses this, not the external URL.
 
 ## 3. Render web service
 
@@ -53,7 +53,7 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 | `DIRECT_URL` | Same value as `DATABASE_URL` on Render (no pooler). Prisma Migrate uses this. If you add a pooler later, keep this as the direct URL. |
 | `AUTH_SECRET` | Unique random string, at least 32 characters |
 | `NEXT_PUBLIC_APP_URL` | `https://notsooboring.com` |
-| `SITE_NAME` | `Saj` |
+| `SITE_NAME` | Leave unset to use the built-in name, or set the public brand |
 | `ALLOW_INDEXING` | `false` |
 | `INDEX_MIN_SALONS` | `8` |
 | `ADMIN_EMAIL` | Your admin address |
@@ -78,7 +78,7 @@ Photo uploads and `scripts/pg-dump.sh` send S3 checksums only when the operation
 
 ## Google Cloud (Cloud Run, Cloud SQL, Firebase Hosting)
 
-Use this instead of the Render steps when the site runs on Google Cloud. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `saj`. Keep `ALLOW_INDEXING` false.
+Use this instead of the Render steps when the site runs on Google Cloud. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `web`. Keep `ALLOW_INDEXING` false.
 
 ### Image
 
@@ -116,7 +116,7 @@ If `DATABASE_URL` goes through a pooler, `DIRECT_URL` stays the direct socket UR
 
 ### Firebase Hosting
 
-`firebase.json` rewrites every path to Cloud Run service `saj` in `asia-south1`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
+`firebase.json` rewrites every path to Cloud Run service `web` in `asia-south1`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
 
 `/_next/static` is cached for one year and marked immutable by the app (`next.config.ts`) and by the matching header in `firebase.json`. HTML stays dynamic. Do not add a Hosting cache rule for `**`.
 

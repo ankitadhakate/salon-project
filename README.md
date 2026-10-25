@@ -1,8 +1,8 @@
-# Saj
+# Salon listings
 
-Saj is a salon discovery site. People search by city, locality, and service. Salon owners sign up, write their own listing, and receive enquiries on WhatsApp. Customers don't pay. During the early partner program, owners don't pay either.
+This is a salon discovery site. People search by city, locality, and service. Salon owners sign up, write their own listing, and receive enquiries on WhatsApp. Customers don't pay. During the early partner program, owners don't pay either.
 
-The site name comes from `SITE_NAME` (default Saj). The public origin comes from `NEXT_PUBLIC_APP_URL`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
+The public name comes from `SITE_NAME`. Leave it unset to use the built-in default. The public origin comes from `NEXT_PUBLIC_APP_URL`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
 
 Deploy steps, cost, and DNS for notsooboring.com are in [DEPLOY.md](DEPLOY.md).
 
@@ -21,7 +21,7 @@ Node 22, and PostgreSQL 16.
 ```bash
 cp .env.example .env
 # Create the database, then set DATABASE_URL in .env.
-# Example: createdb saj && createuser saj
+# Example: createdb salon && createuser salon
 npm install
 npm run db:setup
 npm run dev
@@ -37,8 +37,8 @@ Created by the seed. Change `ADMIN_PASSWORD` before you seed anything you care a
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Salon owner (sample) | demo-owner@saj.local | saj-demo-owner |
-| Admin | admin@saj.local | saj-admin-dev |
+| Salon owner (sample) | demo-owner@example.local | demo-owner-dev |
+| Admin | admin@example.local | admin-dev-pass |
 
 The login page shows these only when `NODE_ENV` is not production. The seed refuses to run when `NODE_ENV=production`. Production boot creates the admin with `npm run db:admin` and does not load sample salons.
 
@@ -116,7 +116,7 @@ See `.env.example`. Production rejects the development secret, the development a
 | `DIRECT_URL` | Direct Postgres URL for Prisma Migrate. Same value as `DATABASE_URL` when there is no pooler. |
 | `AUTH_SECRET` | Random string. 16+ characters in development, 32+ in production. Signs the session cookie. |
 | `NEXT_PUBLIC_APP_URL` | Public origin. Cookie is Secure when this is https. |
-| `SITE_NAME` | Brand in the header, titles, and email. Default Saj. |
+| `SITE_NAME` | Brand in the header, titles, and email. Leave unset to use the built-in default. |
 | `ALLOW_INDEXING` | `true` to allow indexing. Anything else, including unset, keeps the site out of search. |
 | `INDEX_MIN_SALONS` | Minimum approved non-sample salons for a city, area, or service page to be indexed. Default 8. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed or `npm run db:admin` creates the admin. |

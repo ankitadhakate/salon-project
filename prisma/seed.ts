@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import bcrypt from "bcryptjs"
 import { loadEnv } from "./load-env"
+import { siteName } from "../lib/site"
 import { demoCoverSvg } from "./demo-art"
 import { LAUNCH_CITY, LAUNCH_LOCALITIES, LAUNCH_SERVICES } from "./launch-data"
 
@@ -55,10 +56,10 @@ const DEMOS: DemoSalon[] = [
     address: "14, Lane 7, Sample Studio, Koregaon Park, Pune 411001",
     gender: "WOMEN",
     referralCode: "PARK-LAUNCH",
-    ownerEmail: "demo-owner@saj.local",
+    ownerEmail: "demo-owner@example.local",
     ownerName: "Demo Owner",
     description:
-      "Sample listing for the Saj demo. A fictional Koregaon Park studio for colour, skin, and bridal trials. None of these prices or phone numbers are real.",
+      `Sample listing for the ${siteName()} demo. A fictional Koregaon Park studio for colour, skin, and bridal trials. None of these prices or phone numbers are real.`,
     closedDays: [0],
     open: "11:00",
     close: "20:00",
@@ -81,7 +82,7 @@ const DEMOS: DemoSalon[] = [
     address: "Shop 3, Sample Arcade, Baner Road, Pune 411045",
     gender: "MEN",
     referralCode: "BANER-01",
-    ownerEmail: "sample.baner@saj.local",
+    ownerEmail: "sample.baner@example.local",
     ownerName: "Sample Baner",
     description:
       "Sample listing. A fictional men's chair in Baner for cuts, fades, and beard work. Not a real business.",
@@ -105,7 +106,7 @@ const DEMOS: DemoSalon[] = [
     address: "202, Sample Plaza, Karve Road, Kothrud, Pune 411038",
     gender: "UNISEX",
     referralCode: null,
-    ownerEmail: "sample.kothrud@saj.local",
+    ownerEmail: "sample.kothrud@example.local",
     ownerName: "Sample Kothrud",
     description:
       "Sample listing. A fictional unisex salon in Kothrud. Prices below are made up for the demo.",
@@ -130,7 +131,7 @@ const DEMOS: DemoSalon[] = [
     address: "88, Sample Court, Datta Mandir Road, Viman Nagar, Pune 411014",
     gender: "WOMEN",
     referralCode: null,
-    ownerEmail: "sample.viman@saj.local",
+    ownerEmail: "sample.viman@example.local",
     ownerName: "Sample Viman",
     description:
       "Sample listing. A fictional skin and makeup studio in Viman Nagar. Not a real salon.",
@@ -154,7 +155,7 @@ const DEMOS: DemoSalon[] = [
     address: "Unit 12, Sample Phase 1, Hinjewadi, Pune 411057",
     gender: "MEN",
     referralCode: null,
-    ownerEmail: "sample.hinjewadi@saj.local",
+    ownerEmail: "sample.hinjewadi@example.local",
     ownerName: "Sample Hinjewadi",
     description:
       "Sample listing. A fictional grooming room aimed at the Hinjewadi office crowd. Not a real business.",
@@ -177,7 +178,7 @@ const DEMOS: DemoSalon[] = [
     address: "5, Sample House, DP Road, Aundh, Pune 411007",
     gender: "UNISEX",
     referralCode: null,
-    ownerEmail: "sample.aundh@saj.local",
+    ownerEmail: "sample.aundh@example.local",
     ownerName: "Sample Aundh",
     description:
       "Sample listing. A fictional colour-led salon in Aundh. The artwork is generated for the demo, not a photo of a shop.",
@@ -200,7 +201,7 @@ const DEMOS: DemoSalon[] = [
     address: "19, Sample Fountain, Kharadi, Pune 411014",
     gender: "WOMEN",
     referralCode: null,
-    ownerEmail: "sample.kharadi@saj.local",
+    ownerEmail: "sample.kharadi@example.local",
     ownerName: "Sample Kharadi",
     description:
       "Sample listing. A fictional nails and skin studio in Kharadi. Not a real salon.",
@@ -223,7 +224,7 @@ const DEMOS: DemoSalon[] = [
     address: "7, Sample Chambers, JM Road, Shivajinagar, Pune 411005",
     gender: "UNISEX",
     referralCode: null,
-    ownerEmail: "sample.shivaji@saj.local",
+    ownerEmail: "sample.shivaji@example.local",
     ownerName: "Sample Shivajinagar",
     description:
       "Sample listing. A fictional neighbourhood salon on JM Road. Prices are illustrative only.",
@@ -247,7 +248,7 @@ const DEMOS: DemoSalon[] = [
     address: "Shop 8, Sample Main Road, Wakad, Pune 411057",
     gender: "MEN",
     referralCode: null,
-    ownerEmail: "sample.wakad@saj.local",
+    ownerEmail: "sample.wakad@example.local",
     ownerName: "Sample Wakad",
     description:
       "Sample listing. A fictional men's shop in Wakad. Not a real business, and the number is not connected.",
@@ -291,7 +292,7 @@ async function main() {
   }
   const { isProduction } = await import("../lib/production")
   const { prisma } = await import("../lib/db")
-  const demoPassword = isProduction() ? randomBytes(24).toString("base64url") : "saj-demo-owner"
+  const demoPassword = isProduction() ? randomBytes(24).toString("base64url") : "demo-owner-dev"
   const passwordHash = await bcrypt.hash(demoPassword, 10)
 
   await prisma.city.upsert({
@@ -329,8 +330,8 @@ async function main() {
     })
   }
 
-  const adminEmail = (process.env.ADMIN_EMAIL || (isProduction() ? "" : "admin@saj.local")).toLowerCase()
-  const adminPassword = process.env.ADMIN_PASSWORD || (isProduction() ? "" : "saj-admin-dev")
+  const adminEmail = (process.env.ADMIN_EMAIL || (isProduction() ? "" : "admin@example.local")).toLowerCase()
+  const adminPassword = process.env.ADMIN_PASSWORD || (isProduction() ? "" : "admin-dev-pass")
   if (!adminEmail.includes("@") || adminPassword.length < 8) {
     throw new Error("Set ADMIN_EMAIL and ADMIN_PASSWORD before seeding.")
   }
@@ -466,7 +467,7 @@ async function main() {
   console.log(
     `Seeded ${LAUNCH_CITY.name} with ${LAUNCH_LOCALITIES.length} localities and ${DEMOS.length} sample salons.`,
   )
-  if (!isProduction()) console.log("Demo owner: demo-owner@saj.local / saj-demo-owner")
+  if (!isProduction()) console.log(`Demo owner: demo-owner@example.local / ${demoPassword}`)
   console.log(`Admin: ${adminEmail} (password set only when that user is first created)`)
   console.log("Remove sample listings with: npm run db:clear-demo")
   await prisma.$disconnect()

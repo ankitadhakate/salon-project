@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose"
 
-export const SESSION_COOKIE = "saj_session"
+export const SESSION_COOKIE = "app_session"
 
 function key() {
   const secret = process.env.AUTH_SECRET

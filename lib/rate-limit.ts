@@ -8,7 +8,7 @@ const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
 function subjectHash(subject: string) {
-  const salt = process.env.AUTH_SECRET || "saj-dev-rate-limit"
+  const salt = process.env.AUTH_SECRET || "dev-rate-limit"
   return createHash("sha256").update(`${salt}\0${subject}`).digest("hex")
 }
 

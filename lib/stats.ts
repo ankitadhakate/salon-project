@@ -10,7 +10,7 @@ export type StatKind = "views" | "calls" | "whatsapps" | "directions" | "appoint
 
 const KINDS: StatKind[] = ["views", "calls", "whatsapps", "directions", "appointments", "shares"]
 
-export const VISITOR_COOKIE = "saj_vid"
+export const VISITOR_COOKIE = "app_vid"
 
 export function isStatKind(value: string): value is StatKind {
   return KINDS.includes(value as StatKind)
@@ -28,7 +28,7 @@ export function localDay(timeZone: string, now = new Date()) {
 }
 
 function visitorHash(id: string) {
-  const salt = process.env.AUTH_SECRET || "saj-dev-rate-limit"
+  const salt = process.env.AUTH_SECRET || "dev-rate-limit"
   return createHash("sha256").update(`${salt}\0visitor\0${id}`).digest("hex")
 }
 

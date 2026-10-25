@@ -16,7 +16,7 @@ fi
 
 mkdir -p backups
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-out="backups/saj-${stamp}.dump"
+out="backups/backup-${stamp}.dump"
 pg_dump --format=custom --no-owner --no-acl --file="$out" "$DATABASE_URL"
 echo "Wrote $out"
 
@@ -45,11 +45,11 @@ upload() {
   fi
 }
 
-upload "s3://${BACKUP_S3_BUCKET}/daily/saj-${stamp}.dump"
+upload "s3://${BACKUP_S3_BUCKET}/daily/backup-${stamp}.dump"
 echo "Uploaded daily dump"
 
 # date -u +%u is 7 on Sunday.
 if [ "$(date -u +%u)" = "7" ]; then
-  upload "s3://${BACKUP_S3_BUCKET}/weekly/saj-${stamp}.dump"
+  upload "s3://${BACKUP_S3_BUCKET}/weekly/backup-${stamp}.dump"
   echo "Uploaded weekly off-site copy"
 fi

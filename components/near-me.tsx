@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
-const STORAGE_KEY = "saj-near"
+const STORAGE_KEY = "near-me"
 
 export function NearMe({
   citySlug,

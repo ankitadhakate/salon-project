@@ -1,13 +1,13 @@
 const BLOCKED_PASSWORDS = new Set([
-  "saj-admin-dev",
-  "saj-demo-owner",
+  "admin-dev-pass",
+  "demo-owner-dev",
   "password",
   "changeme",
   "admin",
 ])
 
 const BLOCKED_SECRETS = new Set([
-  "dev-secret-change-before-any-real-deploy-saj",
+  "dev-secret-change-before-any-real-deploy",
   "replace-with-a-long-random-string",
   "build-time-placeholder-not-a-real-secret",
 ])

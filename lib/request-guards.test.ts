@@ -27,5 +27,5 @@ test("reads the first forwarded address and a named cookie", () => {
     clientIpFromRequest(call({ "x-forwarded-for": "203.0.113.8, 10.0.0.1" })),
     "203.0.113.8",
   )
-  assert.equal(readCookie(call({ cookie: "a=1; saj_vid=abc%2F; b=2" }), "saj_vid"), "abc/")
+  assert.equal(readCookie(call({ cookie: "a=1; vid=abc%2F; b=2" }), "vid"), "abc/")
 })

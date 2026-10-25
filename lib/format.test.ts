@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { inr, isOpenNow, openStatusLabel } from "./format"
+import { siteName } from "./site"
 import { appointmentHref, appointmentMessage, slotsForDay } from "./appointments"
 
 test("groups rupees with en-IN digits", () => {
@@ -48,9 +49,10 @@ test("drops closed days and past slots", () => {
 })
 
 test("encodes the appointment WhatsApp link with the city dial code", () => {
+  const brand = siteName()
   const message = appointmentMessage({
     salonName: "Glow",
-    brand: "Saj",
+    brand,
     serviceName: "Haircut",
     priceInr: 500,
     dateLabel: "Sat, 1 Nov",
@@ -59,14 +61,14 @@ test("encodes the appointment WhatsApp link with the city dial code", () => {
   })
   assert.equal(
     message,
-    "Hi Glow, I found you on Saj. I'd like to book Haircut (₹500) on Sat, 1 Nov at 4:30 pm. Name: Ada. Is this slot available?",
+    `Hi Glow, I found you on ${brand}. I'd like to book Haircut (₹500) on Sat, 1 Nov at 4:30 pm. Name: Ada. Is this slot available?`,
   )
   const href = appointmentHref("9000000000", "971", message)
   assert.ok(href.startsWith("https://wa.me/9719000000000?text="))
   assert.equal(decodeURIComponent(href.slice(href.indexOf("text=") + 5)), message)
   const unnamed = appointmentMessage({
     salonName: "Glow",
-    brand: "Saj",
+    brand,
     serviceName: "Haircut",
     priceInr: 500,
     dateLabel: "Sat, 1 Nov",
