@@ -19,17 +19,17 @@ export function SiteHeader() {
         >
           {name}
         </Link>
-        <div className="flex min-w-0 items-center justify-end gap-1.5 md:gap-3">
-          <Link
-            href="/partner"
-            aria-label="List your salon free"
-            className="inline-flex h-8 shrink-0 items-center rounded-full bg-primary px-2.5 text-xs font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover md:h-9 md:px-3 md:text-sm"
-          >
-            <span className="md:hidden">List</span>
-            <span className="hidden md:inline">List your salon free</span>
-          </Link>
+        <div className="flex min-w-0 items-center justify-end">
           <HeaderAuth />
         </div>
+      </div>
+      <div className="mx-auto flex w-full max-w-6xl justify-end px-3 pb-2 sm:px-4">
+        <Link
+          href="/partner"
+          className="inline-flex h-7 items-center rounded-full bg-primary px-2.5 text-xs font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover"
+        >
+          List your salon free
+        </Link>
       </div>
     </header>
   )
