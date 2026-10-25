@@ -43,12 +43,15 @@ export function AreaPill() {
     }
   }, [])
 
-  if (!label) return null
+  const text = label ?? "Set location"
   return (
-    <Link href="/?change=1" className="area-pill inline-flex h-8 max-w-[9.5rem] items-center gap-1 rounded-full px-2.5 text-sm font-semibold sm:max-w-[14rem]">
+    <Link
+      href="/?change=1"
+      className="area-pill inline-flex h-8 max-w-full min-w-0 items-center gap-1 rounded-full px-2 text-xs font-semibold sm:px-2.5 sm:text-sm"
+    >
       <MapPin className="size-3.5 shrink-0" aria-hidden />
-      <span className="truncate">{label}</span>
-      <span className="sr-only">Change location</span>
+      <span className="truncate">{text}</span>
+      <span className="sr-only">{label ? "Change location" : "Set your location"}</span>
     </Link>
   )
 }

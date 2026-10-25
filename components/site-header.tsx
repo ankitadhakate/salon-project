@@ -9,17 +9,24 @@ export function SiteHeader() {
   return (
     <header className="site-header sticky top-0 z-40 border-b border-border bg-white">
       <ScrollHeader />
-      <div className="header-row mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
-        <Link href="/" className="wordmark inline-flex h-10 shrink-0 items-center font-heading text-lg leading-none font-bold tracking-tight">
+      <div className="header-row mx-auto grid h-14 w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-4">
+        <div className="min-w-0">
+          <AreaPill />
+        </div>
+        <Link
+          href="/"
+          className="wordmark max-w-full truncate px-2 text-center font-heading text-lg leading-none font-bold tracking-tight"
+        >
           {name}
         </Link>
-        <AreaPill />
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 items-center justify-end gap-1.5 md:gap-3">
           <Link
             href="/partner"
-            className="hidden h-9 items-center rounded-full bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover sm:inline-flex"
+            aria-label="List your salon free"
+            className="inline-flex h-8 shrink-0 items-center rounded-full bg-primary px-2.5 text-xs font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover md:h-9 md:px-3 md:text-sm"
           >
-            List your salon free
+            <span className="md:hidden">List</span>
+            <span className="hidden md:inline">List your salon free</span>
           </Link>
           <HeaderAuth />
         </div>
