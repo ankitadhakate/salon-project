@@ -100,12 +100,6 @@ export default async function HomePage({
             Haircut, facial, bridal makeup. Prices written down by the salon.
           </p>
           <HeroFinder active={Boolean(near)} ask={ask} placeLabel={discovery.place} defaultPlace={defaultPlace} />
-          <Link
-            href="/partner"
-            className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:bg-primary-hover"
-          >
-            List your salon free
-          </Link>
         </div>
       </section>
 

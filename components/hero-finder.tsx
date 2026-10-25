@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useId, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MapPin } from "lucide-react"
 import { OmniSearch } from "@/components/omni-search"
@@ -206,14 +207,9 @@ export function HeroFinder({
     (places.length > 0 || remote.length > 0 || Boolean(defaultPlace))
 
   return (
-    <div className="mx-auto mt-8 w-full max-w-3xl text-left text-foreground">
-      <div
-        className={`overflow-visible rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)] ${
-          chrome === "field" ? "flex flex-col sm:flex-row" : ""
-        }`}
-      >
-        {chrome === "field" ? (
-        <div className="relative border-b border-border sm:w-72 sm:border-r sm:border-b-0">
+    <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col gap-3 text-left text-foreground">
+      {chrome === "field" ? (
+        <div className="relative rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)]">
             <div>
               <label htmlFor={listId} className="sr-only">
                 Area or city
@@ -282,29 +278,29 @@ export function HeroFinder({
             </ul>
           ) : null}
         </div>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <OmniSearch embedded />
-        </div>
-      </div>
-      {chrome === "detecting" ? (
-        <p className="mt-3 text-center text-sm text-white/80" role="status">
-          Detecting your location…
-        </p>
       ) : null}
       {chrome === "field" ? (
         <button
           type="button"
           onClick={() => requestPosition(true)}
           disabled={pending}
-          className="mt-3 text-sm font-semibold text-white underline decoration-white/70 underline-offset-4 disabled:opacity-70"
+          className="self-center text-sm font-semibold text-white underline decoration-white/70 underline-offset-4 disabled:opacity-70"
         >
           {pending ? "Finding you…" : "Use my location"}
         </button>
       ) : null}
       {chrome === "field" && error ? (
-        <p className="mt-3 rounded-xl bg-white/95 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p className="rounded-xl bg-white/95 px-3 py-2 text-center text-sm text-destructive">{error}</p>
       ) : null}
+      <OmniSearch embedded status={chrome === "detecting" ? "Detecting your location…" : ""} />
+      <div className="hero-list-cta-in mx-auto w-full sm:w-auto">
+        <Link
+          href="/partner"
+          className="hero-list-cta inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:bg-primary-hover sm:w-auto"
+        >
+          List your salon free
+        </Link>
+      </div>
     </div>
   )
 }

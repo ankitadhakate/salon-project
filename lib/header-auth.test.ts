@@ -11,6 +11,7 @@ test("cached public header starts signed out and never includes Log out", () => 
   assert.equal(header.includes("Log out"), false)
   assert.equal(header.includes("getSessionUser"), false)
   assert.match(header, /grid-cols-\[minmax\(0,1fr\)_auto_minmax\(0,1fr\)\]/)
+  assert.equal(header.includes("List your salon free"), false)
   const pill = readFileSync(new URL("../components/area-pill.tsx", import.meta.url), "utf8")
   assert.match(pill, /Set location/)
   assert.match(pill, /truncate/)

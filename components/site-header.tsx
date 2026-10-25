@@ -23,14 +23,6 @@ export function SiteHeader() {
           <HeaderAuth />
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-6xl justify-end px-3 pb-2 sm:px-4">
-        <Link
-          href="/partner"
-          className="inline-flex h-7 items-center rounded-full bg-primary px-2.5 text-xs font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover"
-        >
-          List your salon free
-        </Link>
-      </div>
     </header>
   )
 }
