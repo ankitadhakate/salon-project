@@ -36,10 +36,12 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 ## 3. Render web service
 
 1. New Web Service from this Git repository. Environment: Docker. Region: Singapore. Instance: `0.5c-512mb`.
-2. Leave the Docker command empty so the image command runs: migrate, seed, then `next start` on `$PORT`.
+2. Leave the Docker command empty so the image command runs: migrate, create the admin if missing, then `next start` on `$PORT`.
 3. Add the environment variables below, then deploy.
 
-The first boot applies `prisma/migrations` and runs the seed. The seed creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if that user does not exist yet. It upserts Pune, localities, and service pages **without** overwriting intros you have saved. Sample salons are created, labelled Sample, and hidden on the public site unless `SHOW_DEMO_LISTINGS=true`. Their owner passwords are random and are not printed.
+The first boot applies `prisma/migrations` and runs `prisma/ensure-admin.ts`. That creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if that user does not exist yet. It does not load cities or sample salons.
+
+The sample seed (`npm run db:seed`, and the `prisma.seed` hook) refuses to run when `NODE_ENV=production`. The container entrypoint skips it in production as well. Do not point a production shell at `npm run db:seed`. Add cities, localities, and service pages in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
 
 ## Environment variables
 
@@ -65,10 +67,11 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 | `S3_SECRET_ACCESS_KEY` | R2 secret |
 | `S3_PUBLIC_URL` | Public photo origin, no trailing slash |
 | `S3_FORCE_PATH_STYLE` | `false` |
+| `BACKUP_S3_BUCKET` | Optional. Off-site dump bucket for `scripts/pg-dump.sh`. Leave unset to keep dumps local only |
 
-Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email. Without SMTP, owners use their password. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists.
+Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email, claim confirmation codes, and the note sent when an owner changes a contact number. Without SMTP, owners use their password, and a claim link cannot be finished in production because the confirmation email cannot be sent. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists. Optional: `BACKUP_S3_BUCKET` for `scripts/pg-dump.sh`. It reuses the `S3_*` credentials. See [RESTORE.md](RESTORE.md).
 
-`NODE_ENV=production` is set by Render. You do not need to add it.
+`NODE_ENV=production` is set by Render. You do not need to add it. That value is also what keeps the sample seed from running on boot.
 
 ## 4. DNS for notsooboring.com
 
@@ -114,3 +117,15 @@ Turn it on later by setting `ALLOW_INDEXING=true` and redeploying. Even then:
 ## Later domain
 
 When the brand domain is ready, add it the same way, set `NEXT_PUBLIC_APP_URL` to `https://` plus that apex, redeploy, and point DNS. Session cookies and canonical URLs follow that variable.
+
+## Backups
+
+Use the paid Render Postgres plan so the host keeps its own backups. Also take a logical dump you control:
+
+```sh
+DATABASE_URL="postgresql://…" sh scripts/pg-dump.sh
+```
+
+Run that daily. Set `BACKUP_S3_BUCKET` (and the existing `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) so the script uploads the dump. On Sundays it also writes a weekly object under `weekly/` in that bucket. The runbook for putting a dump back, and for testing that once against a throwaway database, is [RESTORE.md](RESTORE.md).
+
+Before the first public launch, run `npm run db:clear-demo` if this database ever had sample salons loaded. Production boot will not do that for you, and it will not re-seed them.

@@ -168,8 +168,8 @@ export function parseHours(formData: FormData) {
     if (!timePattern.test(openTime) || !timePattern.test(closeTime)) {
       return { ok: false as const, error: "Use opening and closing times like 10:00." }
     }
-    if (!closed && closeTime <= openTime) {
-      return { ok: false as const, error: "Closing time should be after opening time." }
+    if (!closed && closeTime === openTime) {
+      return { ok: false as const, error: "Closing time should be after opening, or earlier the next morning." }
     }
     rows.push({ dayOfWeek: day, closed, openTime, closeTime })
   }

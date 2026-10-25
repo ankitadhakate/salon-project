@@ -10,6 +10,7 @@ export function Flash({
     <div className="grid gap-2">
       {error ? (
         <p
+          id="form-error"
           role="alert"
           className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >

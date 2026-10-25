@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto"
 import { mkdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
+import sharp from "sharp"
 
 const MAX_BYTES = 5 * 1024 * 1024
+const MAX_WIDTH = 1600
 
 export class ImageStorageError extends Error {}
 
@@ -36,19 +38,37 @@ function sniff(buffer: Buffer) {
   return null
 }
 
-async function readImage(file: File) {
+/** Sniff, cap size, auto-rotate, strip metadata, and re-encode as WebP at most 1600px wide. */
+export async function prepareImage(file: File) {
   if (!(file instanceof File) || file.size === 0) {
     throw new ImageStorageError("Choose a photo first.")
   }
   if (file.size > MAX_BYTES) {
     throw new ImageStorageError("Images must be under 5 MB.")
   }
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const ext = sniff(buffer)
-  if (!ext) {
+  const original = Buffer.from(await file.arrayBuffer())
+  if (original.length > MAX_BYTES) {
+    throw new ImageStorageError("Images must be under 5 MB.")
+  }
+  if (!sniff(original)) {
     throw new ImageStorageError("Use a JPG, PNG, or WebP image.")
   }
-  return { buffer, ext, contentType: ext === "jpg" ? "image/jpeg" : `image/${ext}` }
+  try {
+    const buffer = await sharp(original, {
+      failOn: "error",
+      limitInputPixels: 24_000_000,
+      sequentialRead: true,
+      pages: 1,
+    })
+      .rotate()
+      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer()
+    return buffer
+  } catch (error) {
+    if (error instanceof ImageStorageError) throw error
+    throw new ImageStorageError("That file isn't a photo we can use.")
+  }
 }
 
 function safeUploadName(key: string) {
@@ -57,8 +77,8 @@ function safeUploadName(key: string) {
 
 class LocalImageStorage implements ImageStorage {
   async save(file: File): Promise<StoredImage> {
-    const { buffer, ext } = await readImage(file)
-    const key = `${Date.now()}-${randomBytes(6).toString("hex")}.${ext}`
+    const buffer = await prepareImage(file)
+    const key = `${Date.now()}-${randomBytes(6).toString("hex")}.webp`
     const dir = path.join(process.cwd(), "public", "uploads")
     await mkdir(dir, { recursive: true })
     await writeFile(path.join(dir, key), buffer)
@@ -79,8 +99,8 @@ function requiredEnv(name: string) {
 
 class S3ImageStorage implements ImageStorage {
   async save(file: File): Promise<StoredImage> {
-    const { buffer, ext, contentType } = await readImage(file)
-    const key = `salons/${Date.now()}-${randomBytes(6).toString("hex")}.${ext}`
+    const buffer = await prepareImage(file)
+    const key = `salons/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
     const bucket = requiredEnv("S3_BUCKET")
     const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3")
     const client = new S3Client({
@@ -97,7 +117,7 @@ class S3ImageStorage implements ImageStorage {
         Bucket: bucket,
         Key: key,
         Body: buffer,
-        ContentType: contentType,
+        ContentType: "image/webp",
       }),
     )
     const base = (process.env.S3_PUBLIC_URL || "").replace(/\/$/, "")

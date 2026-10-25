@@ -116,10 +116,14 @@ model Salon {
   services       Service[]
   hours          OpeningHour[]
   stats          SalonStat[]
+  statEvents     StatDedup[]
+  audits         ListingAudit[]
   claimInvites   ClaimInvite[]
 
   @@unique([citySlug, areaSlug, slug])
   @@index([status, citySlug, areaSlug])
+  @@index([status, isDemo, citySlug, areaSlug, startingPrice])
+  @@index([latitude, longitude])
   @@index([isDemo])
 }
 
@@ -168,16 +172,18 @@ model SiteSetting {
   value String
 }
 
-// Daily totals only. No visitor id, IP, or account is stored.
+// Daily totals. A visitor id, IP, or account is not stored on this row.
 model SalonStat {
   id         String   @id @default(cuid())
   salonId    String
   salon      Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
   day        DateTime @db.Date
-  views      Int      @default(0)
-  calls      Int      @default(0)
-  whatsapps  Int      @default(0)
-  directions Int      @default(0)
+  views        Int      @default(0)
+  calls        Int      @default(0)
+  whatsapps    Int      @default(0)
+  directions   Int      @default(0)
+  appointments Int      @default(0)
+  shares       Int      @default(0)
 
   @@unique([salonId, day])
   @@index([salonId])
@@ -192,7 +198,68 @@ model ClaimInvite {
   phone     String    @default("")
   expiresAt DateTime
   usedAt    DateTime?
+  revokedAt DateTime?
   createdAt DateTime  @default(now())
+  proofs    ClaimProof[]
 
   @@index([salonId])
+}
+
+// Salted hashes only. The raw IP address and email are not stored.
+model RateLimit {
+  id          String   @id @default(cuid())
+  bucket      String
+  subjectHash String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@unique([bucket, subjectHash, windowStart])
+  @@index([windowStart])
+}
+
+// One row per visitor, salon, local day, and kind. Deleted after about 30 days.
+model StatDedup {
+  id          String   @id @default(cuid())
+  salonId     String
+  salon       Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  day         DateTime @db.Date
+  kind        String
+  visitorHash String
+  createdAt   DateTime @default(now())
+
+  @@unique([salonId, day, kind, visitorHash])
+  @@index([createdAt])
+}
+
+// Old and new values for listing edits that may need a review.
+model ListingAudit {
+  id        String   @id @default(cuid())
+  salonId   String
+  salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  actorId   String?
+  field     String
+  oldValue  String   @default("")
+  newValue  String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([salonId, createdAt])
+}
+
+// Proves the claimant controls the invite email. The password is stored only as a hash.
+model ClaimProof {
+  id           String      @id @default(cuid())
+  tokenHash    String      @unique
+  codeHash     String
+  inviteId     String
+  invite       ClaimInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  email        String
+  name         String      @default("")
+  passwordHash String      @default("")
+  phone        String      @default("")
+  userId       String?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([inviteId])
 }

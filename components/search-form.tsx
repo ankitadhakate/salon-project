@@ -80,14 +80,14 @@ export function SearchForm({
           {genders.map((option) => (
             <label
               key={option.value}
-              className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-input text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
+              className="relative flex h-11 cursor-pointer items-center justify-center rounded-lg border border-input text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
             >
               <input
                 type="radio"
                 name="gender"
                 value={option.value}
                 defaultChecked={gender === option.value}
-                className="sr-only"
+                className="absolute inset-x-0 top-0 h-11 w-full cursor-pointer opacity-0"
               />
               {option.label}
             </label>
@@ -100,14 +100,14 @@ export function SearchForm({
           {PRICE_BANDS.map((band) => (
             <label
               key={band.value}
-              className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-input px-2 text-center text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
+              className="relative flex h-11 cursor-pointer items-center justify-center rounded-lg border border-input px-2 text-center text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground"
             >
               <input
                 type="radio"
                 name="price"
                 value={band.value === "ANY" ? "" : band.value}
                 defaultChecked={price === band.value || (band.value === "ANY" && !defaults?.price)}
-                className="sr-only"
+                className="absolute inset-x-0 top-0 h-11 w-full cursor-pointer opacity-0"
               />
               {band.label}
             </label>

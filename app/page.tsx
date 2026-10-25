@@ -5,13 +5,28 @@ import { NearMe } from "@/components/near-me"
 import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
 import { buttonVariants } from "@/components/ui/button"
-import type { SearchParams } from "@/lib/filters"
-import { parseNear, rankByDistance } from "@/lib/geo"
+import type { Metadata } from "next"
+import { hasActiveQuery, type SearchParams } from "@/lib/filters"
+import { parseNear, widenNearHref } from "@/lib/geo"
+import { robotsForListing } from "@/lib/indexing"
 import { listActiveCities } from "@/lib/places"
 import { countLiveByArea, listLiveSalons } from "@/lib/salons"
 import { siteName } from "@/lib/site"
 import { appUrl } from "@/lib/urls"
 import { cn } from "@/lib/utils"
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}): Promise<Metadata> {
+  const sp = await searchParams
+  if (!hasActiveQuery(sp)) return {}
+  return {
+    robots: robotsForListing(true, true),
+    alternates: { canonical: "/" },
+  }
+}
 
 const quickServices = [
   { slug: "haircut", name: "Haircut" },
@@ -30,13 +45,17 @@ export default async function HomePage({
   const sp = await searchParams
   const near = parseNear(sp)
   const cities = await listActiveCities()
-  const [salons, countEntries] = await Promise.all([
-    listLiveSalons(),
+  const [listed, countEntries] = await Promise.all([
+    listLiveSalons({
+      near,
+      pageSize: 6,
+      sort: near ? "nearest" : "",
+      timeZone: cities[0]?.timezone,
+    }),
     Promise.all(cities.map(async (city) => [city.slug, await countLiveByArea(city.slug)] as const)),
   ])
   const countsByCity = new Map(countEntries)
-  const ranked = rankByDistance(salons, near)
-  const preview = ranked.slice(0, 6)
+  const preview = listed.salons
   const name = siteName()
   const primary = cities[0]
   const jsonLd = {
@@ -76,7 +95,7 @@ export default async function HomePage({
                 <li key={city.slug}>
                   <Link
                     href={`/${city.slug}`}
-                    className="inline-flex h-9 items-center rounded-full border border-border bg-card px-3 text-sm font-medium"
+                    className="inline-flex h-11 items-center rounded-full border border-border bg-card px-3 text-sm font-medium"
                   >
                     {city.name}
                   </Link>
@@ -101,7 +120,7 @@ export default async function HomePage({
                 <li key={service.slug}>
                   <Link
                     href={`/${primary.slug}/service/${service.slug}`}
-                    className="inline-flex h-9 items-center rounded-full border border-border bg-card px-3 text-sm whitespace-nowrap"
+                    className="inline-flex h-11 items-center rounded-full border border-border bg-card px-3 text-sm whitespace-nowrap"
                   >
                     {service.name}
                   </Link>
@@ -115,25 +134,32 @@ export default async function HomePage({
       <section className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
         <div className="mb-4 flex items-end justify-between gap-3">
           <h2 className="font-heading text-3xl">{near ? "Salons near you" : "Featured salons"}</h2>
-          {primary && salons.length > 0 ? (
+          {primary && preview.length > 0 ? (
             <Link
               href={
                 near
                   ? `/${primary.slug}?lat=${near.lat.toFixed(5)}&lng=${near.lng.toFixed(5)}${near.km ? `&km=${near.km}` : ""}`
                   : `/${primary.slug}`
               }
-              className="text-sm font-medium text-primary"
+              className="inline-flex h-11 items-center text-sm font-medium text-primary"
             >
               See all
             </Link>
           ) : null}
         </div>
-        {preview.length === 0 && near ? (
+        {preview.length === 0 && near?.km ? (
           <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
-            <p className="font-heading text-2xl">Nothing pinned within {near.km ? `${near.km} km` : "range"}</p>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Widen the distance, or pick a locality.
-            </p>
+            <p className="font-heading text-2xl">No salons within {near.km} km</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Link href={widenNearHref(`/${primary?.slug ?? ""}`, sp, near)} className={cn(buttonVariants(), "h-11 px-4")}>
+                Widen radius
+              </Link>
+              {primary ? (
+                <Link href={`/${primary.slug}`} className={cn(buttonVariants({ variant: "outline" }), "h-11 px-4")}>
+                  Browse {primary.name}
+                </Link>
+              ) : null}
+            </div>
           </div>
         ) : preview.length === 0 ? (
           <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
@@ -173,7 +199,7 @@ export default async function HomePage({
             <div className="sm:hidden">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <h2 className="font-heading text-3xl">Areas</h2>
-                <Link href={`/${city.slug}`} className="text-sm font-medium text-primary">
+                <Link href={`/${city.slug}`} className="inline-flex h-11 items-center text-sm font-medium text-primary">
                   All areas
                 </Link>
               </div>
@@ -182,7 +208,7 @@ export default async function HomePage({
                   <li key={area.slug}>
                     <Link
                       href={`/${city.slug}/${area.slug}`}
-                      className="inline-flex h-9 items-center rounded-full border border-border bg-card px-3 text-sm"
+                      className="inline-flex h-11 items-center rounded-full border border-border bg-card px-3 text-sm"
                     >
                       {area.name}
                     </Link>

@@ -29,7 +29,7 @@ export default async function AdminPage({
   if (!user || user.role !== "ADMIN") return null
   const sp = await searchParams
   const claimPath = sp.claim && /^\/partner\/claim\/[a-f0-9]{64}$/.test(sp.claim) ? sp.claim : ""
-  const [requireApproval, salons, owners, cities, realLive] = await Promise.all([
+  const [requireApproval, salons, owners, cities, realLive, audits] = await Promise.all([
     getRequireApproval(),
     prisma.salon.findMany({
       include: { owner: { select: { name: true, email: true, referralCode: true, isDemo: true } } },
@@ -48,7 +48,14 @@ export default async function AdminPage({
       },
     }),
     prisma.salon.count({ where: { status: "LIVE", isDemo: false } }),
+    prisma.listingAudit.findMany({ orderBy: { createdAt: "desc" }, take: 80 }),
   ])
+  const auditsBySalon = new Map<string, typeof audits>()
+  for (const audit of audits) {
+    const list = auditsBySalon.get(audit.salonId) ?? []
+    if (list.length < 4) list.push(audit)
+    auditsBySalon.set(audit.salonId, list)
+  }
 
   const counts = {
     owners: owners.length,
@@ -112,7 +119,8 @@ export default async function AdminPage({
       <h2 className="mt-10 font-heading text-3xl">Create a listing for a salon</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         The salon has no owner yet. Add an email or a phone number, then send the claim link. The owner
-        verifies that contact, takes over the draft, and edits it. Submitting still waits in this queue.
+        confirms the email with a code, takes over the draft, and edits it. A new link revokes the older
+        ones. Submitting still waits in this queue.
       </p>
       {claimPath ? (
         <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm break-all">
@@ -183,6 +191,16 @@ export default async function AdminPage({
               </div>
               {salon.referralCode ? (
                 <p className="mt-2 text-sm text-muted-foreground">Referral {salon.referralCode}</p>
+              ) : null}
+              {(auditsBySalon.get(salon.id) ?? []).length ? (
+                <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
+                  {(auditsBySalon.get(salon.id) ?? []).map((audit) => (
+                    <li key={audit.id}>
+                      {audit.field}: {(audit.oldValue || "—").slice(0, 80)} → {(audit.newValue || "—").slice(0, 80)} ·{" "}
+                      {formatWhen(audit.createdAt)}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 {salon.status !== "LIVE" ? (

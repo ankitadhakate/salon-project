@@ -40,7 +40,7 @@ Created by the seed. Change `ADMIN_PASSWORD` before you seed anything you care a
 | Salon owner (sample) | demo-owner@saj.local | saj-demo-owner |
 | Admin | admin@saj.local | saj-admin-dev |
 
-The login page shows these only when `NODE_ENV` is not production. A production seed gives sample owners a random password and does not print it.
+The login page shows these only when `NODE_ENV` is not production. The seed refuses to run when `NODE_ENV=production`. Production boot creates the admin with `npm run db:admin` and does not load sample salons.
 
 ### Sample listings
 
@@ -118,10 +118,10 @@ See `.env.example`. Production rejects the development secret, the development a
 | `SITE_NAME` | Brand in the header, titles, and email. Default Saj. |
 | `ALLOW_INDEXING` | `true` to allow indexing. Anything else, including unset, keeps the site out of search. |
 | `INDEX_MIN_SALONS` | Minimum approved non-sample salons for a city, area, or service page to be indexed. Default 8. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed creates the admin. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed or `npm run db:admin` creates the admin. |
 | `AUTO_APPROVE_LISTINGS` | If `true` before the setting exists, new submissions skip review. The admin screen overrides this afterwards. |
 | `SHOW_DEMO_LISTINGS` | Force sample listings on or off. |
-| `SMTP_*` | Sends magic-link and claim email. Without it, development prints the sign-in link on the login screen, and the admin copies the claim link. Production asks the owner to use a password instead of showing a magic link. |
+| `SMTP_*` | Sends magic-link email, claim confirmation codes, and contact-number change notes. Without it, development shows the link on screen. Production will not finish a claim, because the confirmation email cannot be sent. |
 | `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. |
 | `ACTION_ALLOWED_ORIGINS` | Extra hosts allowed to POST server actions, if a proxy presents a different host. |
 
@@ -129,7 +129,7 @@ See `.env.example`. Production rejects the development secret, the development a
 
 `lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloudflare R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`.
 
-Uploads are limited to JPG, PNG, and WebP under 5 MB, checked by file signature.
+Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 
 ## Scripts
 
@@ -137,6 +137,8 @@ Uploads are limited to JPG, PNG, and WebP under 5 MB, checked by file signature.
 | --- | --- |
 | `npm run dev` | Dev server on port 3847 |
 | `npm run db:setup` | Apply migrations and seed |
+| `npm run db:admin` | Create the admin user only. Safe in production. |
 | `npm run db:clear-demo` | Delete sample listings and sample users |
+| `sh scripts/pg-dump.sh` | Write a Postgres dump. See RESTORE.md. |
 | `npm run build` / `npm start` | Production build and server. `start` listens on `PORT` or 3847. |
 | `npm run lint` | ESLint |

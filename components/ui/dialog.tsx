@@ -43,9 +43,11 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  placement = "center",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  placement?: "center" | "sheet" | "full"
 }) {
   return (
     <DialogPortal>
@@ -53,7 +55,13 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed z-50 w-full gap-4 p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          placement === "center" &&
+            "top-1/2 left-1/2 grid max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-popover text-popover-foreground sm:max-w-sm data-open:zoom-in-95 data-closed:zoom-out-95",
+          placement === "sheet" &&
+            "inset-x-0 bottom-0 grid max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-popover pb-[max(1rem,env(safe-area-inset-bottom))] text-popover-foreground",
+          placement === "full" &&
+            "inset-0 flex h-[100dvh] max-w-none items-center justify-center rounded-none bg-foreground text-background",
           className
         )}
         {...props}
@@ -65,8 +73,8 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
+                className={cn("absolute top-2 right-2", placement === "full" && "bg-background text-foreground")}
+                size="icon-touch"
               />
             }
           >

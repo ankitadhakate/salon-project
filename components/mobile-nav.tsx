@@ -36,24 +36,24 @@ export function MobileNav({
           <DialogDescription>Salons listed by the people who run them.</DialogDescription>
         </DialogHeader>
         <nav className="grid text-lg">
-          <Link className="rounded-lg px-1 py-3" href={browseHref}>
+          <Link className="flex min-h-11 items-center rounded-lg px-1" href={browseHref}>
             Browse
           </Link>
-          <Link className="rounded-lg px-1 py-3" href="/for-salons">
+          <Link className="flex min-h-11 items-center rounded-lg px-1" href="/for-salons">
             List your salon free
           </Link>
           {user?.role === "ADMIN" ? (
-            <Link className="rounded-lg px-1 py-3" href="/admin">
+            <Link className="flex min-h-11 items-center rounded-lg px-1" href="/admin">
               Admin
             </Link>
           ) : null}
           {user && user.role !== "ADMIN" ? (
-            <Link className="rounded-lg px-1 py-3" href="/partner">
+            <Link className="flex min-h-11 items-center rounded-lg px-1" href="/partner">
               Partner
             </Link>
           ) : null}
           {!user ? (
-            <Link className="rounded-lg px-1 py-3" href="/partner/login">
+            <Link className="flex min-h-11 items-center rounded-lg px-1" href="/partner/login">
               Owner login
             </Link>
           ) : null}

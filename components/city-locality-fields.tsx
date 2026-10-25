@@ -8,6 +8,7 @@ const control =
 export type CityOption = {
   slug: string
   name: string
+  dialCode?: string
   localities: { slug: string; name: string }[]
 }
 
@@ -15,10 +16,12 @@ export function CityLocalityFields({
   cities,
   citySlug,
   areaSlug,
+  invalidField = "",
 }: {
   cities: CityOption[]
   citySlug?: string
   areaSlug?: string
+  invalidField?: string
 }) {
   const initial = citySlug && cities.some((city) => city.slug === citySlug) ? citySlug : cities[0]?.slug ?? ""
   const [city, setCity] = useState(initial)
@@ -35,6 +38,9 @@ export function CityLocalityFields({
           id="citySlug"
           name="citySlug"
           required
+          data-field="citySlug"
+          aria-invalid={invalidField === "citySlug" || undefined}
+          aria-describedby={invalidField === "citySlug" ? "form-error" : undefined}
           value={city}
           onChange={(event) => setCity(event.target.value)}
           className={control}
@@ -51,7 +57,17 @@ export function CityLocalityFields({
         <label htmlFor="areaSlug" className="text-sm font-medium">
           Locality
         </label>
-        <select id="areaSlug" name="areaSlug" required defaultValue={areaDefault} key={city} className={control}>
+        <select
+          id="areaSlug"
+          name="areaSlug"
+          required
+          data-field="areaSlug"
+          aria-invalid={invalidField === "areaSlug" || undefined}
+          aria-describedby={invalidField === "areaSlug" ? "form-error" : undefined}
+          defaultValue={areaDefault}
+          key={city}
+          className={control}
+        >
           <option value="" disabled>
             Choose a locality
           </option>

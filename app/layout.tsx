@@ -55,7 +55,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="flex min-h-full flex-col">
         <a
           href="#main"
-          className="absolute -left-[999px] top-2 z-50 rounded-lg bg-card px-3 py-2 focus:left-4"
+          className="absolute -left-[999px] top-2 z-50 inline-flex h-11 items-center rounded-lg bg-card px-3 focus:left-4"
         >
           Skip to content
         </a>

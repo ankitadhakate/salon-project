@@ -21,6 +21,8 @@ const STATS = [
   ["Calls", "calls"],
   ["WhatsApp", "whatsapps"],
   ["Directions", "directions"],
+  ["Appointment requests", "appointments"],
+  ["Shares", "shares"],
 ] as const
 
 export default async function PartnerPage({
@@ -67,7 +69,7 @@ export default async function PartnerPage({
           : salon.status === "PENDING"
             ? "Pending review. Customers cannot see it until it is approved."
             : salon.status === "LIVE"
-              ? "Live. Edits stay on the public page."
+              ? "Live. Customers can see it. Everyday edits show straight away. Name, phone, WhatsApp, photos, and anything in the first 30 days wait for a review."
               : statusLabel(salon.status)}
       </p>
       <div className="mt-4">
@@ -92,16 +94,19 @@ export default async function PartnerPage({
           Listing stats
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Views, call taps, WhatsApp taps, and direction taps. Counts only, per day. No visitor name,
-          account, or address is stored.
+          Views, call taps, WhatsApp taps, direction taps, appointment requests, and shares. Counts
+          only, per day. No visitor name, account, or address is stored.
         </p>
         {stats ? (
           <dl className="mt-4 grid grid-cols-2 gap-3">
             {STATS.map(([label, key]) => (
               <div key={key} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
                 <dt className="text-sm text-muted-foreground">{label}</dt>
-                <dd className="font-heading text-3xl tabular-nums">{stats.today[key]}</dd>
-                <dd className="text-sm text-muted-foreground tabular-nums">{stats.total[key]} total</dd>
+                <dd className="font-heading text-3xl tabular-nums">{stats.week[key]}</dd>
+                <dd className="text-sm font-medium">Last 7 days</dd>
+                <dd className="text-sm text-muted-foreground tabular-nums">
+                  {stats.today[key]} today · {stats.total[key]} total
+                </dd>
               </div>
             ))}
           </dl>

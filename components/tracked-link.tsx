@@ -9,7 +9,7 @@ export function TrackedLink({
   external = false,
 }: {
   salonId: string
-  kind: "calls" | "whatsapps" | "directions"
+  kind: "calls" | "whatsapps" | "directions" | "appointments" | "shares"
   href: string
   className?: string
   children: React.ReactNode
@@ -22,6 +22,7 @@ export function TrackedLink({
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
       onClick={() => {
+        if (!salonId) return
         const body = JSON.stringify({ salonId, kind })
         if (navigator.sendBeacon) {
           navigator.sendBeacon("/api/salon-stats", new Blob([body], { type: "application/json" }))

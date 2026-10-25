@@ -15,14 +15,14 @@ export async function SiteHeader({ user }: { user: NavUser }) {
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur">
       <div className="h-1 bg-primary" />
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-3">
-        <Link href="/" className="font-heading text-[1.7rem] leading-none tracking-tight">
+        <Link href="/" className="inline-flex h-11 items-center font-heading text-[1.7rem] leading-none tracking-tight">
           {name}
         </Link>
         <p className="hidden text-sm text-muted-foreground lg:block">Salon listings</p>
         <div className="ml-auto flex items-center gap-2 sm:gap-5">
           <Link
             href="/partner"
-            className={cn(buttonVariants(), "h-9 px-2.5 text-xs sm:h-10 sm:px-3 sm:text-sm")}
+            className={cn(buttonVariants(), "h-11 px-3 text-xs sm:text-sm")}
           >
             List your salon free
           </Link>

@@ -2,37 +2,37 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { DirectoryBrowser } from "@/components/directory-browser"
 import { NearMe } from "@/components/near-me"
-import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
 import { WhatsAppShare } from "@/components/whatsapp-share"
-import { buttonVariants } from "@/components/ui/button"
-import { parseFilters, type SearchParams } from "@/lib/filters"
-import { parseNear, rankByDistance } from "@/lib/geo"
+import { hasActiveQuery, hasListingFilters, parseFilters, type SearchParams } from "@/lib/filters"
+import { parseNear, widenNearHref } from "@/lib/geo"
 import { typicalPriceLabel } from "@/lib/format"
-import { directoryEligible, robotsFor } from "@/lib/indexing"
+import { directoryEligible, robotsForListing } from "@/lib/indexing"
 import { getLocality, listActiveCities } from "@/lib/places"
 import { areaServicePrices, countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
-import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ city: string; locality: string }>; searchParams: Promise<SearchParams> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { city: citySlug, locality: localitySlug } = await params
   const locality = await getLocality(citySlug, localitySlug)
-  if (!locality) return { title: "Area", robots: robotsFor(false) }
+  if (!locality) notFound()
+  const sp = await searchParams
   const count = await countRealSalons({ citySlug, areaSlug: localitySlug })
   const title = `Salons in ${locality.name}, ${locality.city.name}`
   const description =
     locality.intro.trim() ||
     `Find salons in ${locality.name}, ${locality.city.name}. Prices are published by each salon.`
+  const path = `/${citySlug}/${locality.slug}`
   return {
     title,
     description: description.slice(0, 180),
-    alternates: { canonical: `/${citySlug}/${locality.slug}` },
-    openGraph: { title, description, url: `/${citySlug}/${locality.slug}` },
-    robots: robotsFor(directoryEligible(locality.intro, count)),
+    alternates: { canonical: path },
+    openGraph: { title, description, url: path },
+    robots: robotsForListing(directoryEligible(locality.intro, count), hasActiveQuery(sp)),
   }
 }
 
@@ -44,11 +44,17 @@ export default async function LocalityPage({ params, searchParams }: Props) {
   const filters = parseFilters(sp)
   const near = parseNear(sp)
   const [listed, cities, servicePrices] = await Promise.all([
-    listLiveSalons({ citySlug, areaSlug: locality.slug, ...filters }),
+    listLiveSalons({
+      citySlug,
+      areaSlug: locality.slug,
+      ...filters,
+      near,
+      timeZone: locality.city.timezone,
+    }),
     listActiveCities(),
     areaServicePrices(citySlug, locality.slug),
   ])
-  const salons = rankByDistance(listed, near)
+  const { salons, hasMore, total } = listed
   const city = locality.city
   const priceRange = typicalPriceLabel(servicePrices)
   const intro = locality.intro.trim()
@@ -59,7 +65,7 @@ export default async function LocalityPage({ params, searchParams }: Props) {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `Salons in ${locality.name}, ${city.name}`,
-    numberOfItems: salons.length,
+    numberOfItems: total,
     itemListElement: salons.map((salon, index) => ({
       "@type": "ListItem",
       position: index + 1,
@@ -77,13 +83,13 @@ export default async function LocalityPage({ params, searchParams }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1">
           <li>
-            <Link href="/" className="hover:text-foreground">
+            <Link href="/" className="inline-flex min-h-11 items-center hover:text-foreground">
               Home
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href={`/${city.slug}`} className="hover:text-foreground">
+            <Link href={`/${city.slug}`} className="inline-flex min-h-11 items-center hover:text-foreground">
               {city.name}
             </Link>
           </li>
@@ -117,33 +123,24 @@ export default async function LocalityPage({ params, searchParams }: Props) {
           />
         </Suspense>
       </div>
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {salons.length === 0 ? "No matches" : salons.length === 1 ? "1 salon" : `${salons.length} salons`}
-        </p>
-        {filters.service || filters.gender || filters.price ? (
-          <Link href={`/${city.slug}/${locality.slug}`} className="text-sm font-medium text-primary">
-            Clear filters
-          </Link>
-        ) : null}
-      </div>
-      {salons.length === 0 ? (
-        <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
-          <p className="font-heading text-2xl">No salons in {locality.name} match that yet</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            A salon here would live at /{city.slug}/{locality.slug}/your-salon.
-          </p>
-          <Link href="/for-salons" className={cn(buttonVariants(), "mt-4 h-11 px-4")}>
-            List your salon
-          </Link>
-        </div>
-      ) : (
-        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {salons.map((salon) => (
-            <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
-          ))}
-        </ul>
-      )}
+      <DirectoryBrowser
+        path={`/${city.slug}/${locality.slug}`}
+        filters={filters}
+        near={near}
+        services={(menu?.serviceGuides ?? []).map((guide) => ({ value: guide.query, label: guide.name }))}
+        salons={salons}
+        hasMore={hasMore}
+        total={total}
+        empty={{
+          kind: near?.km && !hasListingFilters(filters) ? "radius" : "area",
+          areaName: locality.name,
+          cityName: city.name,
+          cityHref: `/${city.slug}`,
+          nearby: nearby.map((area) => ({ href: `/${city.slug}/${area.slug}`, name: area.name })),
+          widenHref: near?.km ? widenNearHref(`/${city.slug}/${locality.slug}`, sp, near) : undefined,
+          radiusKm: near?.km,
+        }}
+      />
       {nearby.length > 0 ? (
         <div className="mt-10">
           <h2 className="font-heading text-2xl">Nearby in {city.name}</h2>
@@ -152,7 +149,7 @@ export default async function LocalityPage({ params, searchParams }: Props) {
               <li key={area.slug}>
                 <Link
                   href={`/${city.slug}/${area.slug}`}
-                  className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm"
+                  className="inline-flex h-11 items-center rounded-full border border-border px-3 text-sm"
                 >
                   {area.name}
                 </Link>
@@ -161,7 +158,7 @@ export default async function LocalityPage({ params, searchParams }: Props) {
             <li>
               <Link
                 href={`/${city.slug}`}
-                className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm"
+                className="inline-flex h-11 items-center rounded-full border border-border px-3 text-sm"
               >
                 All of {city.name}
               </Link>

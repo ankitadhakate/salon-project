@@ -1,9 +1,11 @@
+import { inr } from "@/lib/format"
+
 export const PRICE_BANDS = [
   { value: "ANY", label: "Any price" },
-  { value: "under-500", label: "Under ₹500" },
-  { value: "500-1500", label: "₹500–1,500" },
-  { value: "1500-5000", label: "₹1,500–5,000" },
-  { value: "5000-plus", label: "₹5,000+" },
+  { value: "under-500", label: `Under ${inr(500)}` },
+  { value: "500-1500", label: `${inr(500)}–${inr(1500)}` },
+  { value: "1500-5000", label: `${inr(1500)}–${inr(5000)}` },
+  { value: "5000-plus", label: `${inr(5000)}+` },
 ] as const
 
 const BAND_RANGE: Record<string, { min?: number; max?: number }> = {
@@ -13,12 +15,17 @@ const BAND_RANGE: Record<string, { min?: number; max?: number }> = {
   "5000-plus": { min: 5000 },
 }
 
+export type SortKey = "" | "price-asc" | "price-desc" | "nearest"
+
 export type PublicFilters = {
   service: string
   gender: "" | "MEN" | "WOMEN" | "UNISEX"
   price: string
   minPrice?: number
   maxPrice?: number
+  open: boolean
+  sort: SortKey
+  page: number
 }
 
 type SearchParamValue = string | string[] | undefined
@@ -39,13 +46,32 @@ export function parseFilters(sp: SearchParams): PublicFilters {
   const priceRaw = searchParam(sp, "price")
   const price = priceRaw in BAND_RANGE ? priceRaw : ""
   const range = BAND_RANGE[price] ?? {}
+  const sortRaw = searchParam(sp, "sort")
+  const sort: SortKey =
+    sortRaw === "price-asc" || sortRaw === "price-desc" || sortRaw === "nearest" ? sortRaw : ""
+  const pageRaw = Number.parseInt(searchParam(sp, "page"), 10)
+  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? Math.min(pageRaw, 50) : 1
   return {
     service,
     gender,
     price,
     minPrice: range.min,
     maxPrice: range.max,
+    open: searchParam(sp, "open") === "1",
+    sort,
+    page,
   }
+}
+
+export function hasActiveQuery(sp: SearchParams) {
+  return Object.values(sp).some((value) => {
+    const text = (Array.isArray(value) ? value[0] : value)?.trim() ?? ""
+    return text.length > 0
+  })
+}
+
+export function hasListingFilters(filters: PublicFilters) {
+  return Boolean(filters.service || filters.gender || filters.price || filters.open)
 }
 
 export function filtersToQuery(filters: PublicFilters) {
@@ -53,6 +79,9 @@ export function filtersToQuery(filters: PublicFilters) {
   if (filters.service) params.set("service", filters.service)
   if (filters.gender) params.set("gender", filters.gender)
   if (filters.price) params.set("price", filters.price)
+  if (filters.open) params.set("open", "1")
+  if (filters.sort) params.set("sort", filters.sort)
+  if (filters.page > 1) params.set("page", String(filters.page))
   const query = params.toString()
   return query ? `?${query}` : ""
 }
@@ -69,5 +98,11 @@ export function describeFilters(filters: PublicFilters) {
   if (filters.gender === "UNISEX") parts.push("unisex only")
   const price = priceLabel(filters.price)
   if (price && filters.price) parts.push(price)
+  if (filters.open) parts.push("Open now")
   return parts
+}
+
+export function resultSummary(count: number, parts: string[]) {
+  const head = count === 1 ? "1 salon" : `${count} salons`
+  return parts.length ? [head, ...parts].join(" · ") : head
 }

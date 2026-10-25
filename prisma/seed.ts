@@ -283,8 +283,13 @@ function searchBlob(demo: DemoSalon, areaName: string) {
 }
 
 async function main() {
-  const { assertProductionRuntime, isProduction } = await import("../lib/production")
-  if (isProduction()) assertProductionRuntime()
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "Refusing to seed while NODE_ENV=production. Production boot does not load cities or sample salons. The admin account is created by prisma/ensure-admin.ts. Add cities in the admin screen, and run npm run db:clear-demo before launch if sample rows were loaded earlier.",
+    )
+    process.exit(1)
+  }
+  const { isProduction } = await import("../lib/production")
   const { prisma } = await import("../lib/db")
   const demoPassword = isProduction() ? randomBytes(24).toString("base64url") : "saj-demo-owner"
   const passwordHash = await bcrypt.hash(demoPassword, 10)

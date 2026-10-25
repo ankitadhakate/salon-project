@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { sendSignInMail, smtpConfigured } from "@/lib/mail"
+import { actionClientIp, limitLogin, limitMagicLink, limitSignup } from "@/lib/rate-limit"
 import { appUrl, safeNextPath } from "@/lib/urls"
 import { parseEmail, parseLogin, parseMagicSignup, parseSignup } from "@/lib/validators"
 
@@ -89,6 +90,8 @@ export async function signup(formData: FormData) {
   if (existing) redirect(existing.role === "ADMIN" ? "/admin" : "/partner")
 
   const parsed = parseSignup(formData)
+  const allowed = await limitSignup(await actionClientIp(), parsed.ok ? parsed.data.email : "")
+  if (!allowed) accountError(formData, "Too many attempts. Wait an hour and try again.")
   if (!parsed.ok) accountError(formData, parsed.error)
 
   try {
@@ -114,6 +117,8 @@ export async function signup(formData: FormData) {
 export async function login(formData: FormData) {
   const parsed = parseLogin(formData)
   const next = safeNextPath(String(formData.get("next") ?? ""))
+  const allowed = await limitLogin(await actionClientIp(), parsed.ok ? parsed.data.email : "")
+  if (!allowed) redirect(loginBack(next, "Too many attempts. Wait a few minutes and try again."))
   if (!parsed.ok) redirect(loginBack(next, parsed.error))
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } })
@@ -129,6 +134,8 @@ export async function login(formData: FormData) {
 
 export async function requestLoginLink(_prev: MagicState, formData: FormData): Promise<MagicState> {
   const parsed = parseEmail(formData)
+  const allowed = await limitMagicLink(await actionClientIp(), parsed.ok ? parsed.email : "")
+  if (!allowed) return { error: "Too many attempts. Wait an hour and try again." }
   if (!parsed.ok) return { error: parsed.error }
   if (!smtpConfigured() && !devMagic()) {
     return { error: "Email sign-in needs SMTP. Use your password for now." }
@@ -145,6 +152,8 @@ export async function requestLoginLink(_prev: MagicState, formData: FormData): P
 
 export async function requestSignupLink(_prev: MagicState, formData: FormData): Promise<MagicState> {
   const parsed = parseMagicSignup(formData)
+  const allowed = await limitMagicLink(await actionClientIp(), parsed.ok ? parsed.data.email : "")
+  if (!allowed) return { error: "Too many attempts. Wait an hour and try again." }
   if (!parsed.ok) return { error: parsed.error }
   if (!smtpConfigured() && !devMagic()) {
     return { error: "Email sign-up needs SMTP. Create a password instead." }
