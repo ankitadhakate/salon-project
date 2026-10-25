@@ -43,7 +43,12 @@ export default async function PartnerEditPage({
         <ListingEditor
           salon={salon}
           user={user}
-          cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))}
+          cities={cities.map((city) => ({
+            slug: city.slug,
+            name: city.name,
+            dialCode: city.dialCode,
+            localities: city.localities,
+          }))}
         />
       </div>
     </div>

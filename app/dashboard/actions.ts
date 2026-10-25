@@ -266,6 +266,11 @@ export async function uploadPhotos(formData: FormData) {
     dashRedirect({ error: `You can add up to ${MAX_PHOTOS} photos.`, setup: wantsSetup(formData) })
   }
   const file = files[0]
+  if (!file) dashRedirect({ error: "Choose a photo first.", setup: wantsSetup(formData) })
+  const caption = String(formData.get("caption") ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80)
   const storage = getImageStorage()
   const order = salon.photos.reduce((max, photo) => Math.max(max, photo.sortOrder), -1) + 1
   let stored: { url: string; key: string }
@@ -285,7 +290,7 @@ export async function uploadPhotos(formData: FormData) {
         salonId: salon.id,
         url: stored.url,
         storageKey: stored.key,
-        alt: `${salon.name} photo`,
+        alt: caption || `${salon.name} photo`,
         sortOrder: order,
       },
     })
@@ -315,6 +320,11 @@ export async function deletePhoto(formData: FormData) {
   const id = String(formData.get("id") ?? "")
   const photo = await prisma.photo.findFirst({ where: { id, salonId: salon.id } })
   if (!photo) dashRedirect({ error: "That photo is not on your listing." })
+  if ((salon.status === "LIVE" || salon.status === "PENDING") && salon.photos.length <= 3) {
+    dashRedirect({
+      error: "Keep at least 3 photos. Add another photo before you remove this one.",
+    })
+  }
   await getImageStorage().remove(photo.storageKey)
   await prisma.photo.delete({ where: { id } })
   const review = await auditListing({
@@ -362,8 +372,8 @@ export async function submitListing(formData?: FormData) {
   if (salon.services.length === 0) {
     dashRedirect({ error: "Add at least one service with a price.", setup })
   }
-  if (setup && salon.photos.length < 3) {
-    dashRedirect({ error: "Add at least 3 photos before you submit.", setup: true })
+  if (salon.photos.length < 3) {
+    dashRedirect({ error: "Add at least 3 photos before you submit.", setup })
   }
   if (salon.status === "LIVE") {
     dashRedirect({

@@ -115,6 +115,7 @@ export function PinPicker({
         <div className="flex gap-2">
           <input
             id="map-search"
+            data-field="latitude"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Street, locality, city"

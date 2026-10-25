@@ -1,9 +1,11 @@
+import { inr } from "@/lib/format"
+
 export const PRICE_BANDS = [
   { value: "ANY", label: "Any price" },
-  { value: "under-500", label: "Under ₹500" },
-  { value: "500-1500", label: "₹500–1,500" },
-  { value: "1500-5000", label: "₹1,500–5,000" },
-  { value: "5000-plus", label: "₹5,000+" },
+  { value: "under-500", label: `Under ${inr(500)}` },
+  { value: "500-1500", label: `${inr(500)}–${inr(1500)}` },
+  { value: "1500-5000", label: `${inr(1500)}–${inr(5000)}` },
+  { value: "5000-plus", label: `${inr(5000)}+` },
 ] as const
 
 const BAND_RANGE: Record<string, { min?: number; max?: number }> = {

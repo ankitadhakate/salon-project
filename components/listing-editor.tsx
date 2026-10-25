@@ -21,6 +21,7 @@ import type { OwnerSalon } from "@/lib/salons"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PhoneField } from "@/components/phone-field"
 import { SubmitButton } from "@/components/submit-button"
 
 const control =
@@ -55,8 +56,10 @@ export function ListingEditor({
 }) {
   const publicPath = salon ? `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}` : ""
   const brand = siteName()
-  const ready =
-    Boolean(salon?.name && salon.address && salon.whatsapp && salon.services.length > 0)
+  const ready = Boolean(
+    salon?.name && salon.address && salon.whatsapp && salon.services.length > 0 && salon.photos.length >= 3,
+  )
+  const dialCities = cities.flatMap((city) => (city.dialCode ? [{ slug: city.slug, dialCode: city.dialCode }] : []))
 
   return (
     <div className="grid gap-4">
@@ -141,29 +144,26 @@ export function ListingEditor({
           </div>
           <PinPicker latitude={salon?.latitude ?? null} longitude={salon?.longitude ?? null} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="whatsapp">WhatsApp number</Label>
-              <Input
-                id="whatsapp"
-                name="whatsapp"
-                inputMode="tel"
-                autoComplete="tel"
-                defaultValue={salon?.whatsapp ?? ""}
-                placeholder="Mobile number"
-                className="h-12 px-3 text-base md:text-base"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="phone">Call number</Label>
-              <Input
-                id="phone"
-                name="phone"
-                inputMode="tel"
-                defaultValue={salon?.phone ?? ""}
-                placeholder="Same as WhatsApp, or another line"
-                className="h-12 px-3 text-base md:text-base"
-              />
-            </div>
+            <PhoneField
+              id="whatsapp"
+              name="whatsapp"
+              label="WhatsApp number"
+              dialCode={salon?.city?.dialCode ?? dialCities[0]?.dialCode ?? ""}
+              defaultValue={salon?.whatsapp ?? ""}
+              placeholder="Mobile number"
+              watchCity
+              cities={dialCities}
+            />
+            <PhoneField
+              id="phone"
+              name="phone"
+              label="Call number"
+              dialCode={salon?.city?.dialCode ?? dialCities[0]?.dialCode ?? ""}
+              defaultValue={salon?.phone ?? ""}
+              placeholder="Same as WhatsApp, or another line"
+              watchCity
+              cities={dialCities}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="description">About the salon</Label>
@@ -205,14 +205,14 @@ export function ListingEditor({
                       ) : (
                         <form action={makeCover}>
                           <input type="hidden" name="id" value={photo.id} />
-                          <SubmitButton variant="outline" pendingLabel="…" className="h-8 px-2 text-xs">
+                          <SubmitButton variant="outline" pendingLabel="…" className="h-11 px-3 text-sm">
                             Make cover
                           </SubmitButton>
                         </form>
                       )}
                       <form action={deletePhoto}>
                         <input type="hidden" name="id" value={photo.id} />
-                        <SubmitButton variant="destructive" pendingLabel="…" className="h-8 px-2 text-xs">
+                        <SubmitButton variant="destructive" pendingLabel="…" className="h-11 px-3 text-sm">
                           Remove
                         </SubmitButton>
                       </form>
@@ -232,7 +232,18 @@ export function ListingEditor({
                 accept="image/jpeg,image/png,image/webp"
                 className="h-12 pt-2 text-base"
               />
-              <SubmitButton pendingLabel="Uploading…">Upload</SubmitButton>
+              <Label htmlFor="caption">Caption</Label>
+              <Input
+                id="caption"
+                name="caption"
+                maxLength={80}
+                placeholder="Hair wash station"
+                className="h-12 px-3 text-base md:text-base"
+              />
+              <p className="text-sm text-muted-foreground">Optional. This is the text a screen reader reads for the photo.</p>
+              <SubmitButton pendingLabel="Uploading…" className="h-12 text-base">
+                Upload
+              </SubmitButton>
             </form>
           </Section>
 
@@ -278,9 +289,10 @@ export function ListingEditor({
                           <Input
                             id={`svc-price-${service.id}`}
                             name="priceInr"
-                            type="number"
-                            min={1}
-                            step={1}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            enterKeyHint="done"
                             defaultValue={service.priceInr}
                             className="h-11 px-3 text-base md:text-base"
                           />
@@ -290,16 +302,17 @@ export function ListingEditor({
                           <Input
                             id={`svc-dur-${service.id}`}
                             name="durationMin"
-                            type="number"
-                            min={5}
-                            step={5}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            enterKeyHint="done"
                             defaultValue={service.durationMin}
                             className="h-11 px-3 text-base md:text-base"
                           />
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <SubmitButton className="h-10 px-3">Save</SubmitButton>
+                        <SubmitButton className="h-11 px-3">Save</SubmitButton>
                         <span className="text-sm text-muted-foreground">
                           {inr(service.priceInr)} · {formatDuration(service.durationMin)}
                         </span>
@@ -307,7 +320,7 @@ export function ListingEditor({
                     </form>
                     <form action={deleteService} className="mt-2">
                       <input type="hidden" name="id" value={service.id} />
-                      <SubmitButton variant="destructive" className="h-10 px-3">
+                      <SubmitButton variant="destructive" className="h-11 px-3">
                         Remove
                       </SubmitButton>
                     </form>
@@ -332,11 +345,11 @@ export function ListingEditor({
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-price">Price (₹)</Label>
-                  <Input id="new-price" name="priceInr" type="number" min={1} step={1} placeholder="500" className="h-11 px-3 text-base md:text-base" />
+                  <Input id="new-price" name="priceInr" inputMode="numeric" pattern="[0-9]*" maxLength={6} enterKeyHint="done" placeholder="500" className="h-12 px-3 text-base md:text-base" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-duration">Duration (minutes)</Label>
-                  <Input id="new-duration" name="durationMin" type="number" min={5} step={5} placeholder="45" className="h-11 px-3 text-base md:text-base" />
+                  <Input id="new-duration" name="durationMin" inputMode="numeric" pattern="[0-9]*" maxLength={4} enterKeyHint="done" placeholder="45" className="h-12 px-3 text-base md:text-base" />
                 </div>
               </div>
               <SubmitButton pendingLabel="Adding…">Add service</SubmitButton>

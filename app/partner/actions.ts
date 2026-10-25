@@ -30,33 +30,37 @@ async function requireOwner() {
   return user
 }
 
-function stepRedirect(step: SetupStep, opts: { notice?: string; error?: string }): never {
+function stepRedirect(step: SetupStep, opts: { notice?: string; error?: string; field?: string }): never {
   const params = new URLSearchParams()
   params.set("step", step)
   if (opts.notice) params.set("notice", opts.notice)
   if (opts.error) params.set("error", opts.error)
+  if (opts.field && /^[a-zA-Z]+$/.test(opts.field)) params.set("field", opts.field)
   redirect(`/partner/setup?${params.toString()}`)
 }
 
 export async function saveSalonStep(formData: FormData) {
   const user = await requireOwner()
   const name = String(formData.get("name") ?? "").trim()
-  if (name.length < 2 || name.length > 80) stepRedirect("salon", { error: "Add the salon name." })
+  if (name.length < 2 || name.length > 80) stepRedirect("salon", { error: "Add the salon name.", field: "name" })
   const citySlug = String(formData.get("citySlug") ?? "").trim()
   const areaSlug = String(formData.get("areaSlug") ?? "").trim()
   const place = await getLocality(citySlug, areaSlug)
-  if (!place) stepRedirect("salon", { error: "Choose a city and locality from the list." })
+  if (!place) stepRedirect("salon", { error: "Choose a city and locality from the list.", field: "areaSlug" })
   const address = String(formData.get("address") ?? "").trim()
   if (address.length < 8 || address.length > 200) {
-    stepRedirect("salon", { error: "Add a street address." })
+    stepRedirect("salon", { error: "Add a street address.", field: "address" })
   }
   const gender = String(formData.get("gender") ?? "")
   if (!(GENDERS as readonly string[]).includes(gender)) {
-    stepRedirect("salon", { error: "Choose who the salon is for." })
+    stepRedirect("salon", { error: "Choose who the salon is for.", field: "gender" })
   }
   const pin = parsePin(formData, true)
   if (!pin.ok || pin.empty) {
-    stepRedirect("salon", { error: pin.ok ? "Search the address and drop the pin on the salon." : pin.error })
+    stepRedirect("salon", {
+      error: pin.ok ? "Search the address and drop the pin on the salon." : pin.error,
+      field: "latitude",
+    })
   }
   const existing = await getOwnerSalon(user.id)
   if (!existing) {
@@ -114,13 +118,13 @@ export async function saveContactStep(formData: FormData) {
   if (!salon) stepRedirect("salon", { error: "Add the salon before the contact number." })
   const country = salon.city?.countryCode ?? "IN"
   const whatsappRaw = String(formData.get("whatsapp") ?? "")
-  if (!whatsappRaw.trim()) stepRedirect("contact", { error: "Add a WhatsApp number." })
+  if (!whatsappRaw.trim()) stepRedirect("contact", { error: "Add a WhatsApp number.", field: "whatsapp" })
   const whatsapp = normalizePhone(whatsappRaw, country, "WhatsApp")
   if (!whatsapp.ok || !whatsapp.value) {
-    stepRedirect("contact", { error: whatsapp.ok ? "Add a WhatsApp number." : whatsapp.error })
+    stepRedirect("contact", { error: whatsapp.ok ? "Add a WhatsApp number." : whatsapp.error, field: "whatsapp" })
   }
   const phone = normalizePhone(String(formData.get("phone") ?? ""), country, "Phone")
-  if (!phone.ok) stepRedirect("contact", { error: phone.error })
+  if (!phone.ok) stepRedirect("contact", { error: phone.error, field: "phone" })
   await prisma.salon.update({
     where: { id: salon.id },
     data: { whatsapp: whatsapp.value, phone: phone.value },
@@ -151,7 +155,7 @@ export async function saveServicesStep(formData: FormData) {
     const raw = String(formData.get(`price-${index}`) ?? "").trim()
     const price = Number(raw || service.priceInr)
     if (!Number.isInteger(price) || price < 1 || price > 500000) {
-      stepRedirect("services", { error: `Enter a whole-rupee price for ${service.name}.` })
+      stepRedirect("services", { error: `Enter a whole-rupee price for ${service.name}.`, field: "services" })
     }
     picks.push({
       name: service.name,
@@ -161,10 +165,36 @@ export async function saveServicesStep(formData: FormData) {
       sortOrder: picks.length,
     })
   })
-  if (!picks.length) stepRedirect("services", { error: "Tick at least one service." })
+  if (!picks.length) stepRedirect("services", { error: "Tick at least one service.", field: "services" })
   const before = salon.services.map((service) => `${service.category}:${service.name}:${service.priceInr}`).join(", ")
-  await prisma.service.deleteMany({ where: { salonId: salon.id } })
-  await prisma.service.createMany({ data: picks.map((pick) => ({ salonId: salon.id, ...pick })) })
+  const suggested = new Set(SUGGESTED_SERVICES.map((service) => `${service.category}:${service.name}`))
+  const picked = new Set(picks.map((pick) => `${pick.category}:${pick.name}`))
+  for (const pick of picks) {
+    const found = salon.services.find((service) => service.category === pick.category && service.name === pick.name)
+    if (!found) {
+      await prisma.service.create({ data: { salonId: salon.id, ...pick } })
+      continue
+    }
+    if (found.priceInr !== pick.priceInr) {
+      await prisma.service.update({
+        where: { id: found.id },
+        data: { priceInr: pick.priceInr, durationMin: pick.durationMin, sortOrder: pick.sortOrder },
+      })
+    } else if (found.durationMin !== pick.durationMin || found.sortOrder !== pick.sortOrder) {
+      await prisma.$executeRaw`
+        UPDATE "Service"
+        SET "durationMin" = ${pick.durationMin}, "sortOrder" = ${pick.sortOrder}
+        WHERE "id" = ${found.id}
+      `
+    }
+  }
+  const dropped = salon.services.filter(
+    (service) =>
+      suggested.has(`${service.category}:${service.name}`) && !picked.has(`${service.category}:${service.name}`),
+  )
+  if (dropped.length) {
+    await prisma.service.deleteMany({ where: { id: { in: dropped.map((service) => service.id) } } })
+  }
   const review = await auditListing({
     salonId: salon.id,
     actorId: user.id,

@@ -100,8 +100,11 @@ export default async function PartnerPage({
             {STATS.map(([label, key]) => (
               <div key={key} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
                 <dt className="text-sm text-muted-foreground">{label}</dt>
-                <dd className="font-heading text-3xl tabular-nums">{stats.today[key]}</dd>
-                <dd className="text-sm text-muted-foreground tabular-nums">{stats.total[key]} total</dd>
+                <dd className="font-heading text-3xl tabular-nums">{stats.week[key]}</dd>
+                <dd className="text-sm font-medium">Last 7 days</dd>
+                <dd className="text-sm text-muted-foreground tabular-nums">
+                  {stats.today[key]} today · {stats.total[key]} total
+                </dd>
               </div>
             ))}
           </dl>

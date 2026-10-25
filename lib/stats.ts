@@ -97,26 +97,48 @@ export async function recordPublicStat(
   return { status: 204, cookie }
 }
 
+export type StatBucket = Record<StatKind, number>
+
 export type StatTotals = {
-  today: { views: number; calls: number; whatsapps: number; directions: number }
-  total: { views: number; calls: number; whatsapps: number; directions: number }
+  today: StatBucket
+  week: StatBucket
+  month: StatBucket
+  total: StatBucket
 }
 
-const empty = { views: 0, calls: 0, whatsapps: 0, directions: 0 }
+function emptyBucket(): StatBucket {
+  return { views: 0, calls: 0, whatsapps: 0, directions: 0 }
+}
+
+function shiftDay(day: Date, days: number) {
+  const next = new Date(day)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
+}
+
+async function sumStats(salonId: string, since: Date | null, until: Date | null = null) {
+  const day =
+    since || until
+      ? { ...(since ? { gte: since } : {}), ...(until ? { lte: until } : {}) }
+      : undefined
+  const row = await prisma.salonStat.aggregate({
+    where: { salonId, ...(day ? { day } : {}) },
+    _sum: { views: true, calls: true, whatsapps: true, directions: true },
+  })
+  const bucket = emptyBucket()
+  for (const kind of KINDS) bucket[kind] = row._sum[kind] ?? 0
+  return bucket
+}
 
 export async function salonStatTotals(salonId: string, timeZone: string): Promise<StatTotals> {
-  const rows = await prisma.salonStat.findMany({ where: { salonId } })
-  const todayKey = localDay(timeZone).toISOString().slice(0, 10)
-  const total = { ...empty }
-  const today = { ...empty }
-  for (const row of rows) {
-    const key = row.day.toISOString().slice(0, 10)
-    for (const kind of KINDS) {
-      total[kind] += row[kind]
-      if (key === todayKey) today[kind] += row[kind]
-    }
-  }
-  return { today, total }
+  const today = localDay(timeZone)
+  const [todayStats, week, month, total] = await Promise.all([
+    sumStats(salonId, today, today),
+    sumStats(salonId, shiftDay(today, -6), today),
+    sumStats(salonId, shiftDay(today, -29), today),
+    sumStats(salonId, null),
+  ])
+  return { today: todayStats, week, month, total }
 }
 
 export function visitorCookieOptions() {
