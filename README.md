@@ -2,9 +2,9 @@
 
 This is a salon discovery site. People search by city, locality, and service. Salon owners sign up, write their own listing, and receive enquiries on WhatsApp. Customers don't pay. During the early partner program, owners don't pay either.
 
-The public name comes from `SITE_NAME`. Leave it unset to use the built-in default. The public origin comes from `NEXT_PUBLIC_APP_URL`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
+The public name comes from `SITE_NAME`. Leave it unset to use the built-in default, LetsTrim. The public origin comes from `NEXT_PUBLIC_APP_URL`. Production uses `https://letstrim.com`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
 
-Deploy steps, cost, and DNS for notsooboring.com are in [DEPLOY.md](DEPLOY.md).
+Deploy steps, cost, and DNS for letstrim.com are in [DEPLOY.md](DEPLOY.md).
 
 ## Stack
 
@@ -116,7 +116,7 @@ See `.env.example`. Production rejects the development secret, the development a
 | `DIRECT_URL` | Non-pooled URL for Prisma Migrate (`directUrl`). On Neon this is the direct host, also `sslmode=require`. Same value as `DATABASE_URL` when there is no pooler. |
 | `AUTH_SECRET` | Random string. 16+ characters in development, 32+ in production. Signs the session cookie. |
 | `NEXT_PUBLIC_APP_URL` | Public origin. Cookie is Secure when this is https. |
-| `SITE_NAME` | Brand in the header, titles, and email. Leave unset to use the built-in default. |
+| `SITE_NAME` | Brand in the header, titles, email, and WhatsApp text. Leave unset to use the built-in default, LetsTrim. |
 | `ALLOW_INDEXING` | `true` to allow indexing. Anything else, including unset, keeps the site out of search. |
 | `INDEX_MIN_SALONS` | Minimum approved non-sample salons for a city, area, or service page to be indexed. Default 8. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed or `npm run db:admin` creates the admin. |

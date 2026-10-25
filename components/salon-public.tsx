@@ -56,8 +56,8 @@ export function SalonPublicView({
   }, null)
   const shareMessage =
     salon.startingPrice != null
-      ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}: ${pageUrl}`
-      : `${salon.name} in ${place}: ${pageUrl}`
+      ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}, on ${brand}: ${pageUrl}`
+      : `${salon.name} in ${place}, on ${brand}: ${pageUrl}`
   const mapUrl = directionsHref(salon.latitude, salon.longitude, salon.address, place, salon.mapsUrl)
   const showJson = !embedded && !salon.isDemo
   const jsonLd = {
