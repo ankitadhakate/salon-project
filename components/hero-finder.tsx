@@ -1,0 +1,292 @@
+"use client"
+
+import { useCallback, useEffect, useId, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Loader2, MapPin, Navigation } from "lucide-react"
+import { OmniSearch } from "@/components/omni-search"
+import {
+  PLACE_STORAGE_KEY,
+  locationAfterGeoError,
+  nextLocationStep,
+  parseSavedPlace,
+  serializePlace,
+  type GeoPermission,
+  type SavedPlace,
+  type SearchRadius,
+} from "@/lib/discovery"
+import type { SuggestHit } from "@/lib/suggest"
+
+type Center = { lat: number; lng: number; label: string }
+type Mode = "locating" | "choose" | "enter" | "ready"
+
+async function readPermission(): Promise<GeoPermission> {
+  if (!navigator.permissions?.query) return "unknown"
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" })
+    if (status.state === "granted" || status.state === "prompt" || status.state === "denied") return status.state
+    return "unknown"
+  } catch {
+    return "unknown"
+  }
+}
+
+export function HeroFinder({
+  active,
+  ask,
+  placeLabel,
+  defaultPlace,
+}: {
+  active: boolean
+  ask: boolean
+  placeLabel: string
+  defaultPlace: Center | null
+}) {
+  const router = useRouter()
+  const listId = useId()
+  const [mode, setMode] = useState<Mode>(active && !ask ? "ready" : "locating")
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState("")
+  const [q, setQ] = useState("")
+  const [places, setPlaces] = useState<SuggestHit[]>([])
+  const [remote, setRemote] = useState<{ label: string; lat: number; lng: number }[]>([])
+  const [focused, setFocused] = useState(false)
+
+  const requestPosition = useCallback(
+    (fromGesture: boolean) => {
+      if (!navigator.geolocation) {
+        setError("This browser can't share a location. Enter an area or city.")
+        setMode("enter")
+        return
+      }
+      setPending(true)
+      setError("")
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setPending(false)
+          const place: SavedPlace = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            label: "Near you",
+            km: 5,
+          }
+          localStorage.setItem(PLACE_STORAGE_KEY, serializePlace(place))
+          router.push(placeHref(place))
+        },
+        (failure) => {
+          setPending(false)
+          void readPermission().then((permission) => {
+            const next = fromGesture ? "enter" : locationAfterGeoError(failure.code, permission)
+            if (next === "enter") {
+              setError(
+                failure.code === 3
+                  ? "Finding you took too long. Enter an area or city."
+                  : "Location access is off. Enter an area or city.",
+              )
+            }
+            setMode(next)
+          })
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+      )
+    },
+    [router],
+  )
+
+  useEffect(() => {
+    if (active && !ask) {
+      setMode("ready")
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
+      const permission = await readPermission()
+      if (cancelled) return
+      const step = nextLocationStep({ ask, hasSaved: Boolean(saved), permission })
+      if (step === "saved" && saved) {
+        router.replace(placeHref(saved))
+        return
+      }
+      if (step === "enter") {
+        setMode("enter")
+        if (permission === "denied") setError("Location access is off. Enter an area or city.")
+        return
+      }
+      setMode("locating")
+      requestPosition(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [active, ask, requestPosition, router])
+
+  useEffect(() => {
+    if (mode !== "enter") return
+    const term = q.trim()
+    if (term.length < 2) {
+      setPlaces([])
+      setRemote([])
+      return
+    }
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/suggest?q=${encodeURIComponent(term)}`, { signal: controller.signal })
+        .then((response) => (response.ok ? response.json() : { hits: [] }))
+        .then(async (body: { hits?: SuggestHit[] }) => {
+          const hits = (body.hits ?? []).filter((hit) => hit.kind === "city" || hit.kind === "area")
+          setPlaces(hits)
+          if (hits.length > 0 || term.length < 3) {
+            setRemote([])
+            return
+          }
+          const geo = await fetch(`/api/geocode?q=${encodeURIComponent(term)}`, { signal: controller.signal })
+          if (!geo.ok) return
+          const found = (await geo.json()) as { results?: { label: string; latitude: number; longitude: number }[] }
+          setRemote(
+            (found.results ?? []).slice(0, 5).map((row) => ({
+              label: row.label,
+              lat: row.latitude,
+              lng: row.longitude,
+            })),
+          )
+        })
+        .catch(() => {})
+    }, 450)
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [q, mode])
+
+  function remember(place: SavedPlace) {
+    localStorage.setItem(PLACE_STORAGE_KEY, serializePlace(place))
+    router.push(placeHref(place))
+  }
+
+  const suggestionsOpen =
+    mode === "enter" &&
+    (focused || q.trim().length > 0) &&
+    (places.length > 0 || remote.length > 0 || Boolean(defaultPlace))
+
+  return (
+    <div className="mx-auto mt-8 w-full max-w-3xl text-left text-foreground">
+      <div className="flex flex-col overflow-visible rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)] sm:flex-row">
+        <div className="relative border-b border-border sm:w-72 sm:border-r sm:border-b-0">
+          {mode === "ready" ? (
+            <button
+              type="button"
+              className="flex h-14 w-full items-center gap-2 px-4 text-left text-sm font-semibold"
+              onClick={() => {
+                setMode("enter")
+                setError("")
+              }}
+            >
+              <MapPin className="size-4 shrink-0 text-sage-ink" aria-hidden />
+              <span className="truncate">{placeLabel || "Change location"}</span>
+            </button>
+          ) : null}
+          {mode === "locating" ? (
+            <p className="flex h-14 items-center gap-2 px-4 text-sm font-medium">
+              <Loader2 className="size-4 animate-spin text-sage-ink" aria-hidden />
+              Finding salons near you
+            </p>
+          ) : null}
+          {mode === "choose" ? (
+            <button
+              type="button"
+              onClick={() => requestPosition(true)}
+              disabled={pending}
+              className="press flex h-14 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-70"
+            >
+              {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Navigation className="size-4 text-sage-ink" aria-hidden />}
+              {pending ? "Finding you…" : "Use my location"}
+            </button>
+          ) : null}
+          {mode === "enter" ? (
+            <div>
+              <label htmlFor={listId} className="sr-only">
+                Area or city
+              </label>
+              <div className="relative">
+                <MapPin className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-sage-ink" aria-hidden />
+                <input
+                  id={listId}
+                  value={q}
+                  onChange={(event) => setQ(event.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => window.setTimeout(() => setFocused(false), 150)}
+                  placeholder={defaultPlace?.label ?? "Area or city"}
+                  autoComplete="off"
+                  className="h-14 w-full bg-transparent pr-3 pl-10 text-sm outline-none"
+                />
+              </div>
+            </div>
+          ) : null}
+          {suggestionsOpen ? (
+            <ul className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-2xl bg-white p-2 shadow-card ring-1 ring-border sm:w-80" aria-label="Location suggestions">
+              {defaultPlace ? (
+                <li>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center rounded-xl px-2 text-left text-sm font-medium hover:bg-blush"
+                    onClick={() => remember({ ...defaultPlace, km: 10 })}
+                  >
+                    {defaultPlace.label}
+                  </button>
+                </li>
+              ) : null}
+              {places.map((place) => (
+                <li key={`${place.kind}-${place.label}`}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left hover:bg-blush"
+                    onClick={() => {
+                      if (place.lat == null || place.lng == null) {
+                        router.push(place.href)
+                        return
+                      }
+                      remember({
+                        lat: place.lat,
+                        lng: place.lng,
+                        label: place.hint && place.kind === "area" ? `${place.label}, ${place.hint}` : place.label,
+                        km: place.kind === "city" ? 10 : 5,
+                      })
+                    }}
+                  >
+                    <span className="font-medium">{place.label}</span>
+                    <span className="text-sm text-muted-foreground">{place.hint}</span>
+                  </button>
+                </li>
+              ))}
+              {remote.map((place) => (
+                <li key={place.label}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center rounded-xl px-2 text-left text-sm hover:bg-blush"
+                    onClick={() => remember({ lat: place.lat, lng: place.lng, label: place.label.slice(0, 80), km: 5 })}
+                  >
+                    {place.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <OmniSearch embedded />
+        </div>
+      </div>
+      {error ? <p className="mt-3 rounded-xl bg-white/95 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
+function placeHref(place: { lat: number; lng: number; label: string; km: SearchRadius }) {
+  const params = new URLSearchParams({
+    lat: place.lat.toFixed(5),
+    lng: place.lng.toFixed(5),
+    km: String(place.km),
+    place: place.label,
+  })
+  return `/?${params.toString()}`
+}

@@ -6,7 +6,15 @@ import { Search } from "lucide-react"
 import { PLACE_STORAGE_KEY, parseSavedPlace } from "@/lib/discovery"
 import { groupSuggestions, type SuggestHit } from "@/lib/suggest"
 
-export function OmniSearch({ compact = false, initial = "" }: { compact?: boolean; initial?: string }) {
+export function OmniSearch({
+  compact = false,
+  initial = "",
+  embedded = false,
+}: {
+  compact?: boolean
+  initial?: string
+  embedded?: boolean
+}) {
   const router = useRouter()
   const listId = useId()
   const [q, setQ] = useState(initial)
@@ -103,13 +111,17 @@ export function OmniSearch({ compact = false, initial = "" }: { compact?: boolea
               setQ(event.target.value)
             }}
             onFocus={() => setActive(true)}
-            placeholder="Search haircut, facial, bridal makeup"
+            placeholder={embedded ? "Search for a salon or a service" : "Search haircut, facial, bridal makeup"}
             autoComplete="off"
             role="combobox"
             aria-expanded={shown}
             aria-controls={listId}
             aria-autocomplete="list"
-            className={`w-full rounded-full bg-card pr-3 pl-10 shadow-card ring-1 ring-border ${compact ? "h-10 text-sm" : "h-14 text-base"}`}
+            className={`w-full pr-3 pl-10 ${
+              embedded
+                ? "h-14 bg-transparent text-base outline-none"
+                : `rounded-full bg-card shadow-card ring-1 ring-border ${compact ? "h-10 text-sm" : "h-14 text-base"}`
+            }`}
           />
         </div>
         <button

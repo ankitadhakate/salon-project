@@ -30,13 +30,6 @@ import { cn } from "@/lib/utils"
 const field =
   "h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
-function chipClass(on: boolean) {
-  return cn(
-    "inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-medium",
-    on ? "bg-sage text-foreground" : "bg-card text-foreground ring-1 ring-border hover:bg-blush",
-  )
-}
-
 const genders = [
   { value: "", label: "Anyone" },
   { value: "WOMEN", label: "Women" },
@@ -132,70 +125,12 @@ export function DirectoryBrowser({
 
   return (
     <div className="mt-6 min-w-0">
-      <div className="grid min-w-0 gap-3">
-        {showService && services.length > 0 ? (
-          <div className="grid gap-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Service</p>
-            <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
-              {services.map((item) => {
-                const on = filters.service === item.value
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    aria-pressed={on}
-                    className={chipClass(on)}
-                    onClick={() => apply({ ...filters, service: on ? "" : item.value, page: 1 })}
-                  >
-                    {item.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ) : null}
-        <div className="grid gap-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Price</p>
-          <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
-            {PRICE_BANDS.filter((band) => band.value !== "ANY").map((band) => {
-              const on = filters.price === band.value
-              return (
-                <button
-                  key={band.value}
-                  type="button"
-                  aria-pressed={on}
-                  className={chipClass(on)}
-                  onClick={() =>
-                    apply({
-                      ...filters,
-                      price: on ? "" : band.value,
-                      page: 1,
-                    })
-                  }
-                >
-                  {band.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            aria-pressed={filters.open}
-            className={chipClass(filters.open)}
-            onClick={() => apply({ ...filters, open: !filters.open, page: 1 })}
-          >
-            Open now
-          </button>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger className="inline-flex h-11 items-center rounded-full bg-sage px-4 text-sm font-semibold text-foreground">
-            Filters ({count})
+            Filters{count > 0 ? ` (${count})` : ""}
           </DialogTrigger>
-          <DialogContent placement="sheet">
+          <DialogContent placement="panel" className="sheet-rise">
             <DialogHeader className="pr-12">
               <DialogTitle className="font-heading text-2xl">Filters</DialogTitle>
               <DialogDescription>These stay in the page address, so back returns to the previous list.</DialogDescription>
@@ -276,20 +211,6 @@ export function DirectoryBrowser({
             </div>
           </DialogContent>
         </Dialog>
-        <label className="sr-only" htmlFor="directory-sort">
-          Sort
-        </label>
-        <select
-          id="directory-sort"
-          className="h-11 rounded-full border border-border bg-card px-3 text-sm"
-          value={filters.sort}
-          onChange={(event) => apply({ ...filters, sort: event.target.value as PublicFilters["sort"], page: 1 })}
-        >
-          <option value="">Suggested</option>
-          <option value="price-asc">Lowest price</option>
-          <option value="price-desc">Highest price</option>
-          {near ? <option value="nearest">Nearest</option> : null}
-        </select>
       </div>
       {chips.length > 0 ? (
         <ul className="mt-3 flex flex-wrap gap-2">

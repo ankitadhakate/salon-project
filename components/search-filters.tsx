@@ -99,20 +99,11 @@ export function SearchFilters({ query }: { query: DiscoveryQuery }) {
   const cleared = discoveryPath(clearDiscoveryFilters(query))
   return (
     <div>
-      <form method="get" action="/search" className="sticky top-24 hidden rounded-2xl bg-card p-4 shadow-card ring-1 ring-border lg:block">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-heading text-xl">Filters</h2>
-          <Link href={cleared} className="text-sm font-medium text-sage-ink">
-            Clear all
-          </Link>
-        </div>
-        <Fields query={query} />
-      </form>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger className="press inline-flex h-11 items-center rounded-full bg-sage px-4 text-sm font-semibold text-foreground lg:hidden">
+        <DialogTrigger className="press inline-flex h-11 items-center rounded-full bg-sage px-4 text-sm font-semibold text-foreground">
           Filters
         </DialogTrigger>
-        <DialogContent placement="sheet" className="sheet-rise">
+        <DialogContent placement="panel" className="sheet-rise">
           <div className="flex items-center justify-between pr-12">
             <DialogTitle className="font-heading text-2xl">Filters</DialogTitle>
             <Link href={cleared} className="text-sm font-medium text-sage-ink" onClick={() => setOpen(false)}>
