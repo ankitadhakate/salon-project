@@ -8,7 +8,7 @@ const extraOrigins = (process.env.ACTION_ALLOWED_ORIGINS || "")
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["sharp"],
+  serverExternalPackages: ["sharp", "@google-cloud/storage"],
   // The dev indicator sits on top of the pinned Call and WhatsApp bar.
   devIndicators: false,
   experimental: {

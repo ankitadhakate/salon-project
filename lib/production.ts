@@ -36,8 +36,14 @@ export function assertProductionRuntime() {
     throw new Error("Set NEXT_PUBLIC_APP_URL to the public https origin, with no trailing path.")
   }
 
-  if ((process.env.IMAGE_DRIVER ?? "") !== "s3") {
-    throw new Error("Set IMAGE_DRIVER=s3 in production so uploaded photos are not stored on the app disk.")
+  const imageDriver = process.env.IMAGE_DRIVER ?? ""
+  if (imageDriver !== "s3" && imageDriver !== "gcs") {
+    throw new Error(
+      "Set IMAGE_DRIVER=s3 or IMAGE_DRIVER=gcs in production so uploaded photos are not stored on the app disk.",
+    )
+  }
+  if (imageDriver === "gcs" && !(process.env.GCS_BUCKET ?? "").trim()) {
+    throw new Error("Set GCS_BUCKET when IMAGE_DRIVER=gcs.")
   }
 
   const email = process.env.ADMIN_EMAIL?.trim() ?? ""
