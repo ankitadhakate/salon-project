@@ -98,6 +98,60 @@ function requiredEnv(name: string) {
   return value
 }
 
+function objectKey() {
+  return `salons/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
+}
+
+function gcsBucket() {
+  const value = process.env.GCS_BUCKET?.trim() ?? ""
+  if (!value) throw new ImageStorageError("Missing GCS_BUCKET for image storage.")
+  return value
+}
+
+/** Public object URL. `GCS_PUBLIC_URL` overrides the storage.googleapis.com default. */
+export function gcsObjectUrl(bucket: string, key: string) {
+  const configured = (process.env.GCS_PUBLIC_URL ?? "").trim().replace(/\/+$/, "")
+  const base = configured || `https://storage.googleapis.com/${bucket}`
+  return `${base}/${key}`
+}
+
+export type GcsClient = {
+  bucket(name: string): {
+    file(name: string): {
+      save(
+        data: Buffer,
+        options?: {
+          resumable?: boolean
+          contentType?: string
+          metadata?: { contentType?: string; cacheControl?: string }
+          public?: boolean
+          predefinedAcl?: string
+          private?: boolean
+        },
+      ): Promise<void>
+      delete(options?: { ignoreNotFound?: boolean }): Promise<unknown>
+    }
+  }
+}
+
+type StorageConstructor = new (options?: { keyFilename?: string; credentials?: object }) => GcsClient
+
+async function loadStorageConstructor(): Promise<StorageConstructor> {
+  const { Storage } = await import("@google-cloud/storage")
+  return Storage as StorageConstructor
+}
+
+/**
+ * Application Default Credentials only. Cloud Run supplies the attached service
+ * account. This does not read a key file or pass client credentials.
+ */
+export async function createKeylessGcsClient(
+  load: () => Promise<StorageConstructor> = loadStorageConstructor,
+): Promise<GcsClient> {
+  const Storage = await load()
+  return new Storage()
+}
+
 // GCS XML API and R2 both reject the SDK default (WHEN_SUPPORTED) flexible checksums.
 async function s3Client() {
   const { S3Client } = await import("@aws-sdk/client-s3")
@@ -117,7 +171,7 @@ async function s3Client() {
 class S3ImageStorage implements ImageStorage {
   async save(file: File): Promise<StoredImage> {
     const buffer = await prepareImage(file)
-    const key = `salons/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
+    const key = objectKey()
     const bucket = requiredEnv("S3_BUCKET")
     const { PutObjectCommand } = await import("@aws-sdk/client-s3")
     const client = await s3Client()
@@ -152,7 +206,37 @@ class S3ImageStorage implements ImageStorage {
   }
 }
 
-export function getImageStorage(): ImageStorage {
+class GcsImageStorage implements ImageStorage {
+  constructor(private readonly createClient: () => Promise<GcsClient> = createKeylessGcsClient) {}
+
+  async save(file: File): Promise<StoredImage> {
+    const buffer = await prepareImage(file)
+    const key = objectKey()
+    const bucket = gcsBucket()
+    const client = await this.createClient()
+    // Uniform bucket-level access rejects object ACLs. Do not set public or predefinedAcl.
+    // Small photos use a simple upload. Resumable uploads are for larger objects.
+    await client.bucket(bucket).file(key).save(buffer, {
+      resumable: false,
+      contentType: "image/webp",
+      metadata: {
+        contentType: "image/webp",
+        cacheControl: IMMUTABLE_CACHE,
+      },
+    })
+    return { url: gcsObjectUrl(bucket, key), key }
+  }
+
+  async remove(key: string) {
+    if (!key || key.startsWith("demo/") || key.includes("..")) return
+    const bucket = gcsBucket()
+    const client = await this.createClient()
+    await client.bucket(bucket).file(key).delete({ ignoreNotFound: true })
+  }
+}
+
+export function getImageStorage(createGcs: () => Promise<GcsClient> = createKeylessGcsClient): ImageStorage {
+  if (process.env.IMAGE_DRIVER === "gcs") return new GcsImageStorage(createGcs)
   if (process.env.IMAGE_DRIVER === "s3") return new S3ImageStorage()
   return new LocalImageStorage()
 }

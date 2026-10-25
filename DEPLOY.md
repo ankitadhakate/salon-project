@@ -34,7 +34,7 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 1. Create an R2 bucket, for example `salon-photos`.
 2. Create an API token that can read and write that bucket.
 3. Turn on public access for the bucket, or attach a custom domain such as `images.notsooboring.com`.
-4. Note the S3 endpoint (`https://<accountid>.r2.cloudflarestorage.com`), the bucket name, the access key, the secret, and the public base URL. No trailing slash on the public URL. The environment table below is the Cloud Storage launch setup. For this Render path, set `S3_ENDPOINT` to the R2 endpoint, `S3_FORCE_PATH_STYLE=false`, and `S3_PUBLIC_URL` to the R2 public origin.
+4. Note the S3 endpoint (`https://<accountid>.r2.cloudflarestorage.com`), the bucket name, the access key, the secret, and the public base URL. No trailing slash on the public URL. For this Render path, set `IMAGE_DRIVER=s3`, `S3_ENDPOINT` to the R2 endpoint, `S3_FORCE_PATH_STYLE=false`, and `S3_PUBLIC_URL` to the R2 public origin. Cloud Run uses `IMAGE_DRIVER=gcs` instead. See [Google Cloud](#google-cloud-cloud-run-neon-cloud-storage).
 
 ## 2. Render Postgres
 
@@ -67,34 +67,50 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 | `ADMIN_PASSWORD` | Unique password, at least 12 characters |
 | `ADMIN_NAME` | Display name for the admin |
 | `SHOW_DEMO_LISTINGS` | Leave unset, or `false` |
-| `IMAGE_DRIVER` | `s3` |
-| `S3_BUCKET` | Cloud Storage bucket name |
-| `S3_REGION` | `auto` |
-| `S3_ENDPOINT` | `https://storage.googleapis.com` |
-| `S3_ACCESS_KEY_ID` | HMAC access key |
-| `S3_SECRET_ACCESS_KEY` | HMAC secret |
-| `S3_PUBLIC_URL` | `https://storage.googleapis.com/<bucket>`, no trailing slash |
-| `S3_FORCE_PATH_STYLE` | `true` |
-| `BACKUP_S3_BUCKET` | Optional. Off-site dump bucket for `scripts/pg-dump.sh`. Leave unset to keep dumps local only |
+| `IMAGE_DRIVER` | `gcs` on Cloud Run. `s3` on Render or Cloudflare R2. Production rejects `local`. |
+| `GCS_BUCKET` | Cloud Storage bucket. Required when `IMAGE_DRIVER=gcs`. |
+| `GCS_PUBLIC_URL` | Optional. Defaults to `https://storage.googleapis.com/<GCS_BUCKET>`. No trailing slash. |
+| `S3_BUCKET` | R2 or S3 bucket. Required when `IMAGE_DRIVER=s3`. |
+| `S3_REGION` | `auto` for R2 |
+| `S3_ENDPOINT` | R2 S3 endpoint. Not used by `IMAGE_DRIVER=gcs`. |
+| `S3_ACCESS_KEY_ID` | R2 or HMAC access key. Not used by `IMAGE_DRIVER=gcs`. |
+| `S3_SECRET_ACCESS_KEY` | R2 or HMAC secret. Not used by `IMAGE_DRIVER=gcs`. |
+| `S3_PUBLIC_URL` | Public photo origin for the s3 driver. No trailing slash. |
+| `S3_FORCE_PATH_STYLE` | `false` for R2. `true` only if an existing HMAC key still talks to the XML API. |
+| `BACKUP_S3_BUCKET` | Optional. `scripts/pg-dump.sh` still uploads with the S3 keys above. Leave unset on Cloud Run unless those keys already exist. Photo storage does not use them. |
 
-Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email, claim confirmation codes, and the note sent when an owner changes a contact number. Without SMTP, owners use their password, and a claim link cannot be finished in production because the confirmation email cannot be sent. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists. Optional: `BACKUP_S3_BUCKET` for `scripts/pg-dump.sh`. It reuses the `S3_*` credentials. See [RESTORE.md](RESTORE.md).
+Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email, claim confirmation codes, and the note sent when an owner changes a contact number. Without SMTP, owners use their password, and a claim link cannot be finished in production because the confirmation email cannot be sent. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists. Optional: `BACKUP_S3_BUCKET` for `scripts/pg-dump.sh`. It reuses the `S3_*` credentials, including when photos use `IMAGE_DRIVER=gcs`. That dump upload is optional. See [RESTORE.md](RESTORE.md).
 
 `NODE_ENV=production` is set by Cloud Run and by Render. You do not need to add it. The migrate job sees that value and seeds the admin, cities, and areas without sample salons.
 
-Photo uploads send S3 checksums only when the operation requires them (`WHEN_REQUIRED`). The Cloud Storage XML API and Cloudflare R2 both reject the AWS SDK default. `scripts/pg-dump.sh` sets the same checksum mode for `aws s3 cp`.
+The s3 driver sends checksums only when the operation requires them (`WHEN_REQUIRED`). Cloudflare R2 rejects the AWS SDK default. `scripts/pg-dump.sh` sets the same checksum mode for `aws s3 cp`. `IMAGE_DRIVER=gcs` does not use that client.
 
 ## Google Cloud (Cloud Run, Neon, Cloud Storage)
 
 This is the launch host. Nothing here creates a project or deploys the app. Cloud Run region `asia-south1`. Service id `saj-web`. Firebase Hosting rewrites every path to that service. Keep `ALLOW_INDEXING` false.
 
-### Photos (Cloud Storage XML API)
+### Photos (Cloud Storage, keyless)
 
-1. Create a bucket, for example `salon-photos`, in the same region.
-2. Create an HMAC key for a service account that can write objects in that bucket.
-3. Make objects readable at `https://storage.googleapis.com/<bucket>/<object>`, or put a public base URL of your own in `S3_PUBLIC_URL`. No trailing slash.
-4. Set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The app stores each photo at `S3_PUBLIC_URL` plus the object key.
+The org enforces `constraints/iam.disableServiceAccountKeyCreation`. That constraint also blocks service-account HMAC keys, so Cloud Run does not use the S3 XML API. Photos use `IMAGE_DRIVER=gcs` and `@google-cloud/storage`. The client uses Application Default Credentials from the runtime service account. There is no key file and no HMAC key.
 
-The same variables work for Cloudflare R2. Use the R2 S3 endpoint, `S3_FORCE_PATH_STYLE=false`, and the R2 public URL.
+1. Create a bucket, for example `salon-photos`, in `asia-south1`, with uniform bucket-level access.
+2. Grant `allUsers` the role `roles/storage.objectViewer` on the bucket so photo URLs are world-readable. Do not grant object ACLs. Uniform bucket-level access would reject them, and the app does not set `public: true` or a predefined ACL.
+3. Grant the Cloud Run runtime service account access to objects in that bucket:
+
+```sh
+gcloud storage buckets add-iam-policy-binding gs://salon-photos \
+  --member="serviceAccount:saj-run@saj-prod-512711.iam.gserviceaccount.com" \
+  --role="roles/storage.objectUser"
+```
+
+4. Attach `saj-run@saj-prod-512711.iam.gserviceaccount.com` to the Cloud Run service `saj-web`. The metadata server then supplies Application Default Credentials. Do not set `GOOGLE_APPLICATION_CREDENTIALS`.
+5. Set `IMAGE_DRIVER=gcs` and `GCS_BUCKET` to the bucket name. `GCS_PUBLIC_URL` is optional. When it is unset, each photo URL is `https://storage.googleapis.com/<bucket>/<object>`. No trailing slash if you set it.
+
+Uploads set `Content-Type: image/webp` and `Cache-Control: public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable`.
+
+`IMAGE_DRIVER=s3` remains for Cloudflare R2 and for any S3 API that already has keys. Do not create an HMAC key for this project.
+
+`scripts/pg-dump.sh` still uploads a dump with `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` when `BACKUP_S3_BUCKET` is set. That path is optional and is not the photo driver. The same org constraint blocks creating a service-account HMAC key for it. Leave `BACKUP_S3_BUCKET` unset unless those keys already exist.
 
 ### Image
 
@@ -112,7 +128,7 @@ Create a Cloud Run Job from the same image. Container command:
 npm run migrate:deploy
 ```
 
-Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. It applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. Set `DIRECT_URL` on the job. If `DATABASE_URL` is the Neon pooler, the script refuses to copy it. When there is no pooler and `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
+Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=gcs`, `GCS_BUCKET`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. The seed runs the production check, which requires `GCS_BUCKET` when the driver is `gcs`, even though this job does not upload photos. The job applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. Set `DIRECT_URL` on the job. If `DATABASE_URL` is the Neon pooler, the script refuses to copy it. When there is no pooler and `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
 
 ### Neon connection strings
 
@@ -134,7 +150,7 @@ The pooled host contains `-pooler`. The direct host does not. Do not point `DIRE
 
 ### Firebase Hosting
 
-`firebase.json` rewrites `**` to Cloud Run service `saj-web` in `asia-south1`. `.firebaserc` has the placeholder project id `YOUR_FIREBASE_PROJECT_ID`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
+`firebase.json` rewrites `**` to Cloud Run service `saj-web` in `asia-south1`. `.firebaserc` selects project `saj-prod-512711`. The Firebase CLI requires a public directory, so `public` is `firebase-public` (a placeholder `404.html`). Hosting still sends app paths to Cloud Run. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
 
 Hosting forwards only the `__session` cookie to Cloud Run, and that cookie is part of the CDN cache key. The login session is stored in `__session` (HttpOnly, Secure when the public origin is https, SameSite=Lax). Listing stats do not set a cookie. A repeat view is deduped with a salted hash of the client IP, the user agent, and the salon-local day. `TRUST_PROXY_HOPS` defaults to 2 so that hash uses the address just left of Firebase Hosting and the Google Front End, not a spoofed leftmost `X-Forwarded-For` entry.
 
@@ -148,7 +164,7 @@ Public directory and salon pages send `Cache-Control: public, s-maxage=300, stal
 
 ### Checksums
 
-`lib/storage.ts` sets `requestChecksumCalculation` and `responseChecksumValidation` to `WHEN_REQUIRED` on the S3 client used for uploads and deletes. That is what the Cloud Storage XML API accepts.
+`IMAGE_DRIVER=s3` sets `requestChecksumCalculation` and `responseChecksumValidation` to `WHEN_REQUIRED` on the S3 client. Cloudflare R2 accepts that. Cloud Run photo uploads use the Cloud Storage JSON client and do not send AWS checksum headers.
 
 ## 4. DNS for the Render alternative
 
@@ -203,6 +219,6 @@ Neon keeps point-in-time backups. On the Render alternative, use the paid Postgr
 DATABASE_URL="postgresql://…" sh scripts/pg-dump.sh
 ```
 
-Run that daily. Set `BACKUP_S3_BUCKET` (and the existing `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) so the script uploads the dump. On Sundays it also writes a weekly object under `weekly/` in that bucket. The runbook for putting a dump back, and for testing that once against a throwaway database, is [RESTORE.md](RESTORE.md).
+Run that daily. Set `BACKUP_S3_BUCKET` (and `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) so the script uploads the dump. On Sundays it also writes a weekly object under `weekly/` in that bucket. Those are S3 HMAC keys. `IMAGE_DRIVER=gcs` does not provide them, and this org blocks creating a service-account HMAC key, so leave `BACKUP_S3_BUCKET` unset on Cloud Run unless the keys already exist. The runbook for putting a dump back, and for testing that once against a throwaway database, is [RESTORE.md](RESTORE.md).
 
 Before the first public launch, run `npm run db:clear-demo` if this database ever had sample salons loaded. Production boot will not do that for you, and it will not re-seed them.

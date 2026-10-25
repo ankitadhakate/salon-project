@@ -2,14 +2,14 @@
 
 Use this when the Postgres data is lost or a bad edit has to be undone. Nothing here creates a host account or deploys the app. Practice it once on a throwaway database before you need it.
 
-Backups come from `scripts/pg-dump.sh`. A dump is a `pg_dump` custom-format file. It does not include photos. Photos live in R2 (`S3_BUCKET`). Restoring the database does not restore a deleted photo object, and restoring a photo bucket does not put the database row back. Keep both.
+Backups come from `scripts/pg-dump.sh`. A dump is a `pg_dump` custom-format file. It does not include photos. On Cloud Run, photos live in Cloud Storage (`GCS_BUCKET`). The s3 driver stores them under `S3_BUCKET` (R2, or an existing S3 API). Restoring the database does not restore a deleted photo object, and restoring a photo bucket does not put the database row back. Keep both.
 
 ## What to run, and when
 
 | Job | Command | Where the file goes |
 | --- | --- | --- |
 | Every day | `DATABASE_URL="…" sh scripts/pg-dump.sh` | `backups/backup-TIMESTAMP.dump` on the machine that ran it |
-| Same command, when `BACKUP_S3_BUCKET` is set | uploads with the existing `S3_*` credentials | `s3://BACKUP_S3_BUCKET/daily/…` |
+| Same command, when `BACKUP_S3_BUCKET` is set | uploads with `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. Optional. `IMAGE_DRIVER=gcs` does not supply these keys. | `s3://BACKUP_S3_BUCKET/daily/…` |
 | Sundays | the same script also copies that day's dump | `s3://BACKUP_S3_BUCKET/weekly/…` |
 
 Render's paid Postgres plan also has its own backups. Prefer a dump you have downloaded when you want a copy that does not live only on Render. Point-in-time recovery, if the plan includes it, is an alternative to a dump for a recent mistake. A weekly object in R2 is the off-site copy.
