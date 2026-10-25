@@ -57,7 +57,7 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 | --- | --- |
 | `DATABASE_URL` | Pooled Neon URL with `sslmode=require`. The app uses this at runtime. On Render, the internal Postgres URL (no pooler). |
 | `DIRECT_URL` | Neon direct URL with `sslmode=require`, no `-pooler` host. Prisma Migrate uses this (`directUrl` in the schema). On Render, the same value as `DATABASE_URL`. |
-| `TRUST_PROXY_HOPS` | Optional. Trusted proxies on the right of `X-Forwarded-For`. Default `2` (Firebase Hosting and the Google Front End). The client IP is the address just to their left. |
+| `TRUST_PROXY_HOPS` | Optional. Trusted proxies on the right of `X-Forwarded-For`. Default `2` (Firebase Hosting and the Google Front End). The client IP is the address just to their left. A shorter list uses the leftmost trusted hop, or `X-Real-Ip` when there are fewer entries than the trusted hops. |
 | `AUTH_SECRET` | Unique random string, at least 32 characters |
 | `NEXT_PUBLIC_APP_URL` | `https://notsooboring.com` |
 | `SITE_NAME` | Leave unset to use the built-in name, or set the public brand |
@@ -152,13 +152,13 @@ The pooled host contains `-pooler`. The direct host does not. Do not point `DIRE
 
 `firebase.json` rewrites `**` to Cloud Run service `saj-web` in `asia-south1`. `.firebaserc` selects project `saj-prod-512711`. The Firebase CLI requires a public directory, so `public` is `firebase-public` (a placeholder `404.html`). Hosting still sends app paths to Cloud Run. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
 
-Hosting forwards only the `__session` cookie to Cloud Run, and that cookie is part of the CDN cache key. The login session is stored in `__session` (HttpOnly, Secure when the public origin is https, SameSite=Lax). Listing stats do not set a cookie. A repeat view is deduped with a salted hash of the client IP, the user agent, and the salon-local day. `TRUST_PROXY_HOPS` defaults to 2 so that hash uses the address just left of Firebase Hosting and the Google Front End, not a spoofed leftmost `X-Forwarded-For` entry.
+Hosting forwards only the `__session` cookie to Cloud Run. The login session is stored in `__session` (HttpOnly, Secure when the public origin is https, SameSite=Lax). Listing stats do not set a cookie. A repeat view is deduped with a salted hash of the client IP, the user agent, and the salon-local day. `TRUST_PROXY_HOPS` defaults to 2 so that hash uses the address just left of Firebase Hosting and the Google Front End. If `X-Forwarded-For` is shorter than that chain, the hash uses the leftmost trusted hop, or `X-Real-Ip` / unknown when the trusted hops themselves are missing. It does not use a lone client-supplied address.
 
 Add notsooboring.com in Firebase Hosting and use the DNS records Hosting shows. The DNS steps further down are only for the Render alternative.
 
 ### Cache
 
-Public directory and salon pages send `Cache-Control: public, s-maxage=300, stale-while-revalidate=600` when the request has no `__session` cookie and is not `?preview=1`. `/admin`, `/dashboard`, `/partner` (including claim), `/login`, `/signup`, `/auth`, and `/api` send `private, no-store`, as does any request that carries `__session` or is not a GET. Those are the routes that set the session cookie, so a `Set-Cookie` response is not cached.
+Public directory and salon pages send `Cache-Control: public, s-maxage=300, stale-while-revalidate=600` and `Vary: Cookie` when the request has no `__session` cookie and is not `?preview=1`. The vary header keeps Firebase Hosting from serving that logged-out copy to a signed-in browser. `/admin`, `/dashboard`, `/partner` (including claim), `/login`, `/signup`, `/auth`, and `/api` send `private, no-store`, as does any request that carries `__session` or is not a GET. Those are the routes that set the session cookie, so a `Set-Cookie` response is not cached.
 
 `/_next/static`, `/uploads`, and `/demo` send a one-year immutable cache, with `s-maxage` and `stale-while-revalidate`, from `next.config.ts` and from `firebase.json`. Photos uploaded to Cloud Storage are stored with the same `Cache-Control`. Do not add a Hosting cache rule for `**`. That would override these headers for HTML.
 
