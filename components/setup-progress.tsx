@@ -14,7 +14,7 @@ export function SetupProgress({ step, signedIn = false }: { step: SetupStep; sig
         <span className="text-muted-foreground"> · {current?.label}</span>
       </p>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+        <div className="h-full rounded-full bg-sage" style={{ width: `${width}%` }} />
       </div>
       <ol className="mt-3 flex justify-between text-xs text-muted-foreground max-[400px]:hidden">
         {steps.map((item, itemIndex) => (

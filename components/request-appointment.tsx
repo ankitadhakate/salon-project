@@ -19,7 +19,10 @@ import {
 import { inr, type HourRow } from "@/lib/format"
 
 const field =
-  "h-12 w-full rounded-lg border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+  "h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
+const cta =
+  "inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary px-4 text-base font-semibold text-primary-foreground shadow-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 
 export function RequestAppointment({
   salonName,
@@ -76,11 +79,7 @@ export function RequestAppointment({
   if (demo) {
     return (
       <div>
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border px-3 text-sm font-medium opacity-60"
-        >
+        <button type="button" disabled className={cta}>
           Request appointment
         </button>
         <p className="mt-1 text-center text-xs text-muted-foreground">
@@ -107,9 +106,7 @@ export function RequestAppointment({
 
   return (
     <Dialog>
-      <DialogTrigger className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-3 text-sm font-medium">
-        Request appointment
-      </DialogTrigger>
+      <DialogTrigger className={cta}>Request appointment</DialogTrigger>
       <DialogContent placement="sheet">
         <DialogHeader className="pr-12">
           <DialogTitle className="font-heading text-2xl">Request appointment</DialogTitle>

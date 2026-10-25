@@ -21,7 +21,7 @@ function MagicResult({ state }: { state: MagicState }) {
         </p>
       ) : null}
       {state.devLink ? (
-        <a href={state.devLink} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+        <a href={state.devLink} className="text-sm font-medium text-sage-ink underline-offset-4 hover:underline">
           Open your sign-in link
         </a>
       ) : null}

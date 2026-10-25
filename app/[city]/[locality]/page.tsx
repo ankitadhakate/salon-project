@@ -105,7 +105,7 @@ export default async function LocalityPage({ params, searchParams }: Props) {
       <div className="mt-4">
         <WhatsAppShare message={`Salons in ${locality.name}, ${city.name}: ${pageUrl}`} />
       </div>
-      <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+      <div className="mt-6">
         <SearchForm
           cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}
           defaults={{

@@ -9,6 +9,8 @@ const placeInclude = {
 
 const cardInclude = {
   photos: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  hours: { select: { dayOfWeek: true, openTime: true, closeTime: true, closed: true } },
+  services: { select: { priceInr: true } },
   ...placeInclude,
 } satisfies Prisma.SalonInclude
 

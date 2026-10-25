@@ -37,7 +37,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+    <section className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border sm:p-6">
       <h2 className="font-heading text-2xl">{title}</h2>
       {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
       <div className="mt-4">{children}</div>
@@ -64,7 +64,7 @@ export function ListingEditor({
   return (
     <div className="grid gap-4">
       {salon ? (
-        <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+        <section className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border sm:p-6">
           <p className="text-sm text-muted-foreground">Status</p>
           <p className="mt-1 font-heading text-3xl">{statusLabel(salon.status)}</p>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -78,7 +78,7 @@ export function ListingEditor({
               "Hidden from search. Update it, then submit again when you want it reviewed."}
           </p>
           <p className="mt-3 text-sm">
-            <Link href={publicPath} className="font-medium text-primary underline-offset-4 hover:underline">
+            <Link href={publicPath} className="font-medium text-sage-ink underline-offset-4 hover:underline">
               {salon.status === "LIVE" ? "View public page" : "Preview page"}
             </Link>
             <span className="text-muted-foreground"> · {publicPath}</span>
@@ -193,14 +193,14 @@ export function ListingEditor({
             hint="Add at least 3 photos — the chairs, the street outside, and the work. Up to 8. Upload one at a time. The first one is the cover. JPG, PNG, or WebP, under 5 MB. Photos are rotated, resized to 1600px wide, and saved without location data."
           >
             {salon.photos.length < 3 ? (
-              <p className="mb-3 text-sm font-medium text-primary">
+              <p className="mb-3 text-sm font-medium text-sage-ink">
                 {salon.photos.length} of 3 photos so far. Add {3 - salon.photos.length} more.
               </p>
             ) : null}
             {salon.photos.length ? (
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {salon.photos.map((photo, index) => (
-                  <li key={photo.id} className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+                  <li key={photo.id} className="overflow-hidden rounded-xl shadow-card ring-1 ring-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={photo.url} alt={photo.alt || salon.name} className="aspect-[4/3] w-full object-cover" />
                     <div className="flex flex-wrap gap-2 p-2">
@@ -420,7 +420,7 @@ export function ListingEditor({
               <p className="text-sm">
                 Live in {salon.locality?.name ?? salon.areaSlug}
                 {salon.city?.name ? `, ${salon.city.name}` : ""}.{" "}
-                <Link href={publicPath} className="font-medium text-primary underline-offset-4 hover:underline">
+                <Link href={publicPath} className="font-medium text-sage-ink underline-offset-4 hover:underline">
                   Open the page
                 </Link>
               </p>
