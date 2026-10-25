@@ -74,9 +74,7 @@ export function SalonGallery({ photos }: { photos: { id: string; url: string; al
         {index + 1}/{count}
       </p>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className="top-0 left-0 flex h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none bg-foreground p-4 sm:max-w-none"
-        >
+        <DialogContent placement="full">
           <DialogTitle className="sr-only">
             Photo {index + 1} of {count}
           </DialogTitle>

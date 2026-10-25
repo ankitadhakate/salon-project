@@ -6,7 +6,7 @@ import { DirectoryBrowser } from "@/components/directory-browser"
 import { NearMe } from "@/components/near-me"
 import { hasActiveQuery, hasListingFilters, parseFilters, type SearchParams } from "@/lib/filters"
 import { parseNear, widenNearHref } from "@/lib/geo"
-import { directoryEligible, robotsFor, robotsForListing } from "@/lib/indexing"
+import { directoryEligible, robotsForListing } from "@/lib/indexing"
 import { getActiveCity, getServiceGuide } from "@/lib/places"
 import { countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
@@ -19,7 +19,7 @@ type Props = {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { city: citySlug, service: serviceSlug } = await params
   const guide = await getServiceGuide(citySlug, serviceSlug)
-  if (!guide) return { title: "Service", robots: robotsFor(false) }
+  if (!guide) notFound()
   const sp = await searchParams
   const count = await countRealSalons({ citySlug, serviceQuery: guide.query })
   const title = `${guide.name} in ${guide.city.name}`
@@ -81,13 +81,13 @@ export default async function ServicePage({ params, searchParams }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1">
           <li>
-            <Link href="/" className="hover:text-foreground">
+            <Link href="/" className="inline-flex min-h-11 items-center hover:text-foreground">
               Home
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href={`/${city.slug}`} className="hover:text-foreground">
+            <Link href={`/${city.slug}`} className="inline-flex min-h-11 items-center hover:text-foreground">
               {city.name}
             </Link>
           </li>

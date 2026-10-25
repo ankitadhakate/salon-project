@@ -110,8 +110,8 @@ export function RequestAppointment({
       <DialogTrigger className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-3 text-sm font-medium">
         Request appointment
       </DialogTrigger>
-      <DialogContent className="top-auto bottom-0 left-0 max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-2xl rounded-b-none sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent placement="sheet">
+        <DialogHeader className="pr-12">
           <DialogTitle className="font-heading text-2xl">Request appointment</DialogTitle>
           <DialogDescription>
             {brand} doesn&apos;t confirm bookings. The salon replies on WhatsApp.

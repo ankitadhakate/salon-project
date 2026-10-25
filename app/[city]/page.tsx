@@ -7,7 +7,7 @@ import { NearMe } from "@/components/near-me"
 import { SearchForm } from "@/components/search-form"
 import { filtersToQuery, hasActiveQuery, hasListingFilters, parseFilters, searchParam, type SearchParams } from "@/lib/filters"
 import { parseNear, widenNearHref, withNearQuery } from "@/lib/geo"
-import { directoryEligible, robotsFor, robotsForListing } from "@/lib/indexing"
+import { directoryEligible, robotsForListing } from "@/lib/indexing"
 import { getActiveCity, listActiveCities } from "@/lib/places"
 import { countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
@@ -17,7 +17,7 @@ type Props = { params: Promise<{ city: string }>; searchParams: Promise<SearchPa
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { city: citySlug } = await params
   const city = await getActiveCity(citySlug)
-  if (!city) return { title: "City", robots: robotsFor(false) }
+  if (!city) notFound()
   const sp = await searchParams
   const count = await countRealSalons({ citySlug: city.slug })
   const title = `Salons in ${city.name}`
@@ -71,7 +71,7 @@ export default async function CityPage({ params, searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <p className="text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-foreground">
+        <Link href="/" className="inline-flex min-h-11 items-center hover:text-foreground">
           Home
         </Link>
         <span aria-hidden="true"> / </span>

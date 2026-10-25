@@ -9,7 +9,7 @@ import { WhatsAppShare } from "@/components/whatsapp-share"
 import { hasActiveQuery, hasListingFilters, parseFilters, type SearchParams } from "@/lib/filters"
 import { parseNear, widenNearHref } from "@/lib/geo"
 import { typicalPriceLabel } from "@/lib/format"
-import { directoryEligible, robotsFor, robotsForListing } from "@/lib/indexing"
+import { directoryEligible, robotsForListing } from "@/lib/indexing"
 import { getLocality, listActiveCities } from "@/lib/places"
 import { areaServicePrices, countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
@@ -19,7 +19,7 @@ type Props = { params: Promise<{ city: string; locality: string }>; searchParams
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { city: citySlug, locality: localitySlug } = await params
   const locality = await getLocality(citySlug, localitySlug)
-  if (!locality) return { title: "Area", robots: robotsFor(false) }
+  if (!locality) notFound()
   const sp = await searchParams
   const count = await countRealSalons({ citySlug, areaSlug: localitySlug })
   const title = `Salons in ${locality.name}, ${locality.city.name}`
@@ -83,13 +83,13 @@ export default async function LocalityPage({ params, searchParams }: Props) {
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1">
           <li>
-            <Link href="/" className="hover:text-foreground">
+            <Link href="/" className="inline-flex min-h-11 items-center hover:text-foreground">
               Home
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href={`/${city.slug}`} className="hover:text-foreground">
+            <Link href={`/${city.slug}`} className="inline-flex min-h-11 items-center hover:text-foreground">
               {city.name}
             </Link>
           </li>

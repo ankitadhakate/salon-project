@@ -16,8 +16,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city: citySlug, locality: areaSlug, salon: slug } = await params
   const salon = await getSalonBySlug(citySlug, areaSlug, slug)
   const place = salon ? `${salon.locality?.name ?? areaSlug}, ${salon.city?.name ?? citySlug}` : ""
-  if (!salon || salon.status !== "LIVE") {
-    return { title: "Salon", robots: robotsFor(false) }
+  if (!salon) notFound()
+  if (salon.status !== "LIVE") {
+    return { title: salon.name, robots: robotsFor(false) }
   }
   const title = `${salon.name} in ${place}`
   const price = salon.startingPrice != null ? ` Services from ${inr(salon.startingPrice)}.` : ""

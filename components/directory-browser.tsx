@@ -130,8 +130,8 @@ export function DirectoryBrowser({
           <DialogTrigger className="inline-flex h-11 items-center rounded-full bg-foreground px-4 text-sm font-medium text-background">
             Filters ({count})
           </DialogTrigger>
-          <DialogContent className="top-auto bottom-0 left-0 max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-2xl rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-lg">
-            <DialogHeader>
+          <DialogContent placement="sheet">
+            <DialogHeader className="pr-12">
               <DialogTitle className="font-heading text-2xl">Filters</DialogTitle>
               <DialogDescription>These stay in the page address, so back returns to the previous list.</DialogDescription>
             </DialogHeader>
@@ -186,7 +186,7 @@ export function DirectoryBrowser({
               <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
                 <input
                   type="checkbox"
-                  className="size-5"
+                  className="size-11"
                   checked={filters.open}
                   onChange={(event) => apply({ ...filters, open: event.target.checked, page: 1 })}
                 />

@@ -154,3 +154,20 @@
   border-radius: 999px;
   box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
 }
+
+.leaflet-control-zoom a {
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  font-size: 22px !important;
+}
+
+.leaflet-control-attribution,
+.leaflet-control-attribution a {
+  display: inline-flex !important;
+  align-items: center;
+  height: 44px !important;
+  min-height: 44px !important;
+  font-size: 12px !important;
+  line-height: 44px !important;
+}
