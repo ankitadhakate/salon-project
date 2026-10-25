@@ -43,6 +43,31 @@ export function locationAfterGeoError(): "enter" {
   return "enter"
 }
 
+export type HeroChrome = "search" | "detecting" | "field"
+
+/**
+ * A granted fix or a saved place: the hero is the search bar only.
+ * A request still in flight, with nothing saved: the search bar plus a hint.
+ * Deny, error, timeout, a missing geolocation API, or Change location: the area field.
+ */
+export function heroLocationChrome(input: {
+  known: boolean
+  ask: boolean
+  status: "granted" | "detecting" | "denied" | "failed"
+}): HeroChrome {
+  if (input.ask) return "field"
+  if (input.known || input.status === "granted") return "search"
+  if (input.status === "denied" || input.status === "failed") return "field"
+  return "detecting"
+}
+
+/** A known place sorts by distance unless the visitor picked another sort. */
+export function discoverySort(query: Pick<DiscoveryQuery, "sort" | "q" | "near">): SortKey {
+  if (query.sort) return query.sort
+  if (query.near) return "nearest"
+  return query.q ? "relevance" : ""
+}
+
 export function defaultCity<T extends { slug: string; name: string }>(cities: T[]): T | null {
   return (
     cities.find((city) => city.slug === "pune" || city.name.toLowerCase() === "pune") ?? cities[0] ?? null

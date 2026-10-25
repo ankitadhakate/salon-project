@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useId, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, MapPin } from "lucide-react"
+import { MapPin } from "lucide-react"
 import { OmniSearch } from "@/components/omni-search"
 import {
   PLACE_STORAGE_KEY,
+  heroLocationChrome,
   nextLocationStep,
   parseSavedPlace,
   serializePlace,
   type GeoPermission,
+  type HeroChrome,
   type SavedPlace,
   type SearchRadius,
 } from "@/lib/discovery"
@@ -52,7 +54,6 @@ async function areaLabel(lat: number, lng: number) {
 export function HeroFinder({
   active,
   ask,
-  placeLabel,
   defaultPlace,
 }: {
   active: boolean
@@ -62,7 +63,8 @@ export function HeroFinder({
 }) {
   const router = useRouter()
   const listId = useId()
-  const [mode, setMode] = useState<Mode>(active && !ask ? "ready" : "locating")
+  const [mode, setMode] = useState<Mode>(ask ? "enter" : active ? "ready" : "locating")
+  const [checked, setChecked] = useState(active || ask)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState("")
   const [q, setQ] = useState("")
@@ -111,23 +113,32 @@ export function HeroFinder({
   )
 
   useEffect(() => {
-    if (active && !ask) {
+    if (ask) {
+      setMode("enter")
+      setChecked(true)
+      return
+    }
+    if (active) {
       setMode("ready")
+      setChecked(true)
+      return
+    }
+    const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
+    if (saved) {
+      setMode("ready")
+      setChecked(true)
+      router.replace(placeHref(saved))
       return
     }
     let cancelled = false
+    setChecked(true)
     ;(async () => {
       const permission = await readPermission()
       if (cancelled) return
       const step = nextLocationStep({ ask, permission })
       if (step === "enter") {
-        const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
-        if (saved && permission === "denied" && !ask) {
-          router.replace(placeHref(saved))
-          return
-        }
         setMode("enter")
-        if (permission === "denied") setError("Location access is off. Enter an area or city.")
+        setError("Location access is off. Enter an area or city.")
         return
       }
       setMode("locating")
@@ -181,35 +192,28 @@ export function HeroFinder({
     router.push(placeHref(place))
   }
 
+  const savedKnown = mode === "ready" || (active && !ask)
+  const chrome: HeroChrome = checked
+    ? heroLocationChrome({
+        known: savedKnown,
+        ask,
+        status: mode === "ready" ? "granted" : mode === "enter" ? "failed" : "detecting",
+      })
+    : "search"
   const suggestionsOpen =
-    mode === "enter" &&
+    chrome === "field" &&
     (focused || q.trim().length > 0) &&
     (places.length > 0 || remote.length > 0 || Boolean(defaultPlace))
 
   return (
     <div className="mx-auto mt-8 w-full max-w-3xl text-left text-foreground">
-      <div className="flex flex-col overflow-visible rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)] sm:flex-row">
+      <div
+        className={`overflow-visible rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)] ${
+          chrome === "field" ? "flex flex-col sm:flex-row" : ""
+        }`}
+      >
+        {chrome === "field" ? (
         <div className="relative border-b border-border sm:w-72 sm:border-r sm:border-b-0">
-          {mode === "ready" ? (
-            <button
-              type="button"
-              className="flex h-14 w-full items-center gap-2 px-4 text-left text-sm font-semibold"
-              onClick={() => {
-                setMode("enter")
-                setError("")
-              }}
-            >
-              <MapPin className="size-4 shrink-0 text-sage-ink" aria-hidden />
-              <span className="truncate">{placeLabel || "Change location"}</span>
-            </button>
-          ) : null}
-          {mode === "locating" ? (
-            <p className="flex h-14 items-center gap-2 px-4 text-sm font-medium">
-              <Loader2 className="size-4 animate-spin text-sage-ink" aria-hidden />
-              Finding salons near you
-            </p>
-          ) : null}
-          {mode === "enter" ? (
             <div>
               <label htmlFor={listId} className="sr-only">
                 Area or city
@@ -228,7 +232,6 @@ export function HeroFinder({
                 />
               </div>
             </div>
-          ) : null}
           {suggestionsOpen ? (
             <ul className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-2xl bg-white p-2 shadow-card ring-1 ring-border sm:w-80" aria-label="Location suggestions">
               {defaultPlace ? (
@@ -279,11 +282,17 @@ export function HeroFinder({
             </ul>
           ) : null}
         </div>
+        ) : null}
         <div className="min-w-0 flex-1">
           <OmniSearch embedded />
         </div>
       </div>
-      {mode === "enter" ? (
+      {chrome === "detecting" ? (
+        <p className="mt-3 text-center text-sm text-white/80" role="status">
+          Detecting your location…
+        </p>
+      ) : null}
+      {chrome === "field" ? (
         <button
           type="button"
           onClick={() => requestPosition(true)}
@@ -293,7 +302,9 @@ export function HeroFinder({
           {pending ? "Finding you…" : "Use my location"}
         </button>
       ) : null}
-      {error ? <p className="mt-3 rounded-xl bg-white/95 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+      {chrome === "field" && error ? (
+        <p className="mt-3 rounded-xl bg-white/95 px-3 py-2 text-sm text-destructive">{error}</p>
+      ) : null}
     </div>
   )
 }

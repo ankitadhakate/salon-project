@@ -16,6 +16,10 @@ async function locationGranted() {
   await page.goto(`${base}/`, { waitUntil: "networkidle" })
   await page.waitForURL(/lat=/, { timeout: 10000 })
   await page.getByText(/\d+(\.\d+)? km|\d+ m/).first().waitFor({ timeout: 10000 })
+  await page.getByRole("combobox", { name: "Search salons, services, and areas" }).waitFor()
+  if ((await page.getByLabel("Area or city").count()) !== 0) {
+    throw new Error("granted location still shows the hero location field")
+  }
   await context.close()
   console.log("location granted ok")
 }
@@ -27,6 +31,7 @@ async function locationDenied() {
   const page = await context.newPage()
   await page.goto(`${base}/`, { waitUntil: "networkidle" })
   await page.getByLabel("Area or city").waitFor({ timeout: 10000 })
+  await page.getByRole("combobox", { name: "Search salons, services, and areas" }).waitFor()
   await page.getByText(/Location access is off|Enter an area or city|took too long|can't share a location/).waitFor()
   await context.close()
   console.log("location denied ok")
@@ -37,11 +42,9 @@ async function locationPrompt() {
   const page = await context.newPage()
   await page.addInitScript(() => {
     const geo = navigator.geolocation
-    const original = geo.getCurrentPosition.bind(geo)
     window.__geoCalls = 0
-    geo.getCurrentPosition = function (...args) {
+    geo.getCurrentPosition = function () {
       window.__geoCalls += 1
-      return original.apply(geo, args)
     }
     const query = navigator.permissions?.query?.bind(navigator.permissions)
     if (navigator.permissions) {
@@ -55,6 +58,11 @@ async function locationPrompt() {
   })
   await page.goto(`${base}/`, { waitUntil: "domcontentloaded" })
   await page.waitForFunction(() => window.__geoCalls > 0, null, { timeout: 5000 })
+  await page.getByText("Detecting your location…").waitFor()
+  await page.getByRole("combobox", { name: "Search salons, services, and areas" }).waitFor()
+  if ((await page.getByLabel("Area or city").count()) !== 0) {
+    throw new Error("location field flashed while detection was in progress")
+  }
   await context.close()
   console.log("location prompt fires without a click")
 }
