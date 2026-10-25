@@ -1,11 +1,14 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { NearMe } from "@/components/near-me"
 import { SalonCard } from "@/components/salon-card"
 import { buttonVariants } from "@/components/ui/button"
 import { filtersToQuery, parseFilters, type SearchParams } from "@/lib/filters"
+import { parseNear, rankByDistance } from "@/lib/geo"
 import { directoryEligible, robotsFor } from "@/lib/indexing"
-import { getServiceGuide } from "@/lib/places"
+import { getActiveCity, getServiceGuide } from "@/lib/places"
 import { countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
 import { cn } from "@/lib/utils"
@@ -38,15 +41,19 @@ export default async function ServicePage({ params, searchParams }: Props) {
   const { city: citySlug, service: serviceSlug } = await params
   const guide = await getServiceGuide(citySlug, serviceSlug)
   if (!guide) notFound()
-  const filters = parseFilters(await searchParams)
-  const salons = await listLiveSalons({
+  const sp = await searchParams
+  const filters = parseFilters(sp)
+  const near = parseNear(sp)
+  const listed = await listLiveSalons({
     citySlug,
     service: guide.query,
     gender: filters.gender,
     minPrice: filters.minPrice,
     maxPrice: filters.maxPrice,
   })
+  const salons = rankByDistance(listed, near)
   const city = guide.city
+  const menu = await getActiveCity(citySlug)
   const query = filtersToQuery({ ...filters, service: "" })
   const jsonLd = {
     "@context": "https://schema.org",
@@ -91,6 +98,12 @@ export default async function ServicePage({ params, searchParams }: Props) {
         {guide.intro.trim() ||
           `Salons in ${city.name} that list ${guide.name.toLowerCase()}, with prices set by the salon.`}
       </p>
+      <Suspense fallback={null}>
+        <NearMe
+          citySlug={city.slug}
+          localities={(menu?.localities ?? []).map((area) => ({ slug: area.slug, name: area.name }))}
+        />
+      </Suspense>
       <div className="mt-6 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {salons.length === 0 ? "No matches" : salons.length === 1 ? "1 salon" : `${salons.length} salons`}
@@ -111,7 +124,7 @@ export default async function ServicePage({ params, searchParams }: Props) {
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {salons.map((salon) => (
-            <SalonCard key={salon.id} salon={salon} />
+            <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
           ))}
         </ul>
       )}

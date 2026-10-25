@@ -77,7 +77,7 @@ Home and `/for-salons` can be indexed once the flag is on. The partner area, old
 
 Customers browse with no account. Owners use `/partner`.
 
-1. Open `/partner` or `/for-salons` and start setup. It is five short steps: account, salon, contact, services, photos. About five minutes.
+1. Open `/partner` or `/for-salons` and start setup. It is five short steps: account, salon, contact, services, photos. About five minutes. On the salon step, search the address and drag the map pin. Latitude and longitude are stored with the listing.
 2. Each category offers common services with suggested prices. Tick them, then edit the price. At least three photos are required before submit.
 3. Optional referral code is stored on the account and copied onto the listing.
 4. Submit. With the default review setting, the listing stays pending until an admin approves it. Edits to a listing that is already live stay on the public page.
@@ -85,6 +85,14 @@ Customers browse with no account. Owners use `/partner`.
 6. The public page is `/<city>/<locality>/<salon-slug>`. The dashboard also shows a phone-sized preview.
 
 `/login`, `/signup`, and `/dashboard` redirect into the partner area.
+
+## Maps and near me
+
+Maps use OpenStreetMap tiles through Leaflet. Address search uses the public Nominatim service. Neither needs an API key. Directions open a Google Maps link (`maps/dir`) which also needs no key and is not the paid Maps JavaScript API.
+
+At launch volume this is ₹0 / $0. OpenStreetMap asks that heavy tile traffic move to your own tile server or a tile host. If that happens, set `NEXT_PUBLIC_MAP_TILE_URL` (the URL can include a provider key) and `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`. Point `GEOCODER_URL` at another search endpoint if Nominatim's one-request-per-second limit is too low.
+
+Customers can opt in with "Use my location". The browser shares a position for that tab only, and the list sorts by distance, with 2 km, 5 km, 10 km, or any distance. Each card shows how far away the salon is. If permission is denied, a locality picker is the fallback. Coordinates are not stored on an account.
 
 ## Claim a listing
 

@@ -1,10 +1,19 @@
 import Link from "next/link"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { SalonFallback } from "@/components/salon-fallback"
+import { formatDistance } from "@/lib/geo"
 import { genderLabel, inr } from "@/lib/format"
 import type { SalonCard as SalonCardData } from "@/lib/salons"
 
-export function SalonCard({ salon, className }: { salon: SalonCardData; className?: string }) {
+export function SalonCard({
+  salon,
+  className,
+  distanceKm = null,
+}: {
+  salon: SalonCardData
+  className?: string
+  distanceKm?: number | null
+}) {
   const photo = salon.photos[0]
   const href = `/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`
   const place = [salon.locality?.name, salon.city?.name].filter(Boolean).join(", ")
@@ -39,6 +48,7 @@ export function SalonCard({ salon, className }: { salon: SalonCardData; classNam
           </p>
           <p className="text-sm text-muted-foreground">
             {place || salon.areaSlug} · {genderLabel(salon.gender)}
+            {distanceKm != null ? ` · ${formatDistance(distanceKm)} away` : ""}
           </p>
           {salon.isEarlyPartner ? (
             <div className="mt-auto pt-2">

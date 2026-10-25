@@ -98,6 +98,8 @@ model Salon {
   areaSlug       String
   locality       Locality      @relation(fields: [citySlug, areaSlug], references: [citySlug, slug])
   address        String
+  latitude       Float?
+  longitude      Float?
   description    String        @default("")
   phone          String        @default("")
   whatsapp       String        @default("")

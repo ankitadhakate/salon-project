@@ -152,3 +152,16 @@ export function mapsHref(address: string, place = "") {
   const query = place ? `${address}, ${place}` : address
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
+
+/** Google Maps navigation. Coordinates need no API key. */
+export function directionsHref(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+  address: string,
+  place = "",
+) {
+  if (latitude != null && longitude != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+  }
+  return mapsHref(address, place)
+}

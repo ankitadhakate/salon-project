@@ -5,6 +5,7 @@ import { signup } from "@/app/auth/actions"
 import { submitListing, uploadPhotos } from "@/app/dashboard/actions"
 import { saveContactStep, saveSalonStep, saveServicesStep } from "@/app/partner/actions"
 import { CityLocalityFields } from "@/components/city-locality-fields"
+import { PinPicker } from "@/components/pin-picker"
 import { Flash } from "@/components/flash"
 import { SignupMagicForm } from "@/components/magic-forms"
 import { SetupProgress } from "@/components/setup-progress"
@@ -26,6 +27,7 @@ const laterSteps = ["salon", "contact", "services", "photos"] as const
 
 function resumeStep(salon: OwnerSalon | null): SetupStep {
   if (!salon) return "salon"
+  if (salon.latitude == null || salon.longitude == null) return "salon"
   if (!salon.whatsapp) return "contact"
   if (salon.services.length === 0) return "services"
   return "photos"
@@ -115,7 +117,7 @@ export default async function PartnerSetupPage({
       {step === "salon" ? (
         <form action={saveSalonStep} className="mt-6 grid gap-4">
           <h1 className="font-heading text-3xl">The salon</h1>
-          <p className="text-sm text-muted-foreground">Name, where it is, and who it is for. Hours start at 10:00–20:00, Monday to Saturday.</p>
+          <p className="text-sm text-muted-foreground">Name, where it is, and a pin on the map. Hours start at 10:00–20:00, Monday to Saturday.</p>
           <div className="grid gap-1.5">
             <Label htmlFor="salon-name">Salon name</Label>
             <Input id="salon-name" name="name" required defaultValue={salon?.name ?? ""} className={field} />
@@ -142,6 +144,7 @@ export default async function PartnerSetupPage({
             <Label htmlFor="address">Street address</Label>
             <Input id="address" name="address" required defaultValue={salon?.address ?? ""} autoComplete="street-address" className={field} />
           </div>
+          <PinPicker latitude={salon?.latitude ?? null} longitude={salon?.longitude ?? null} />
           <SubmitButton pendingLabel="Saving…" className="h-12 text-base">
             Continue
           </SubmitButton>

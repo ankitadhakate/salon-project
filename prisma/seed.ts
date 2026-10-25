@@ -33,6 +33,18 @@ type DemoSalon = {
   palette: { a: string; b: string; ink: string }
 }
 
+const DEMO_PINS: Record<string, { latitude: number; longitude: number }> = {
+  "saffron-atelier": { latitude: 18.5362, longitude: 73.8939 },
+  "the-monday-chair": { latitude: 18.559, longitude: 73.7868 },
+  "meher-and-co": { latitude: 18.5074, longitude: 73.8077 },
+  "glow-theory": { latitude: 18.5679, longitude: 73.9143 },
+  "westend-grooming": { latitude: 18.5913, longitude: 73.7389 },
+  "aundh-house": { latitude: 18.5606, longitude: 73.8102 },
+  "palm-and-petal": { latitude: 18.5511, longitude: 73.9348 },
+  "jm-road-cut": { latitude: 18.5314, longitude: 73.8476 },
+  "wakad-clippers": { latitude: 18.5987, longitude: 73.764 },
+}
+
 // Fictional businesses for local development. Not real salons.
 // Remove them with: npm run db:clear-demo
 const DEMOS: DemoSalon[] = [
@@ -384,6 +396,8 @@ async function main() {
       referralCode: demo.referralCode,
       startingPrice,
       searchBlob: searchBlob(demo, `${area.name} ${LAUNCH_CITY.name}`),
+      latitude: DEMO_PINS[demo.slug].latitude,
+      longitude: DEMO_PINS[demo.slug].longitude,
     }
 
     const existing = await prisma.salon.findUnique({

@@ -1,4 +1,4 @@
-import { formatPhone, mapsHref, whatsAppHref } from "@/lib/format"
+import { directionsHref, formatPhone, whatsAppHref } from "@/lib/format"
 import { siteName } from "@/lib/site"
 import { TrackedLink } from "@/components/tracked-link"
 import { buttonVariants } from "@/components/ui/button"
@@ -14,6 +14,8 @@ export function ContactActions({
   place = "",
   dialCode = "91",
   salonId = "",
+  latitude = null,
+  longitude = null,
 }: {
   name: string
   phone: string
@@ -24,6 +26,8 @@ export function ContactActions({
   place?: string
   dialCode?: string
   salonId?: string
+  latitude?: number | null
+  longitude?: number | null
 }) {
   if (demo) {
     const note = "Sample listing. WhatsApp and call are switched off so this demo never messages a real number."
@@ -98,7 +102,7 @@ export function ContactActions({
       <TrackedLink
         salonId={salonId}
         kind="directions"
-        href={mapsHref(address, place)}
+        href={directionsHref(latitude, longitude, address, place)}
         external
         className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >

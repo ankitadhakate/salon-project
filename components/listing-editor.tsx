@@ -12,6 +12,7 @@ import {
   uploadPhotos,
 } from "@/app/dashboard/actions"
 import { CityLocalityFields, type CityOption } from "@/components/city-locality-fields"
+import { PinPicker } from "@/components/pin-picker"
 import { DAYS, SERVICE_CATEGORIES } from "@/lib/constants"
 import type { SessionUser } from "@/lib/auth"
 import { siteName } from "@/lib/site"
@@ -137,6 +138,7 @@ export function ListingEditor({
               className="h-12 px-3 text-base md:text-base"
             />
           </div>
+          <PinPicker latitude={salon?.latitude ?? null} longitude={salon?.longitude ?? null} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="whatsapp">WhatsApp number</Label>

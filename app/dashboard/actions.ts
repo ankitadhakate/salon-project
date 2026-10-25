@@ -14,6 +14,7 @@ import {
 import { getRequireApproval } from "@/lib/settings"
 import { getImageStorage, ImageStorageError } from "@/lib/storage"
 import { getLocality } from "@/lib/places"
+import { parsePin } from "@/lib/geo"
 import { normalizePhone, parseHours, parsePassword, parseProfile, parseService } from "@/lib/validators"
 
 async function requireOwner() {
@@ -59,6 +60,9 @@ export async function saveProfile(formData: FormData) {
   const whatsapp = normalizePhone(parsed.data.whatsapp, place.city.countryCode, "WhatsApp")
   if (!whatsapp.ok) dashRedirect({ error: whatsapp.error })
   const profile = { ...parsed.data, phone: phone.value, whatsapp: whatsapp.value }
+  const pin = parsePin(formData, false)
+  if (!pin.ok) dashRedirect({ error: pin.error })
+  const coordinates = pin.empty ? {} : { latitude: pin.latitude, longitude: pin.longitude }
   const existing = await getOwnerSalon(user.id)
 
   if (!existing) {
@@ -71,6 +75,7 @@ export async function saveProfile(formData: FormData) {
         citySlug: profile.citySlug,
         areaSlug: profile.areaSlug,
         address: profile.address,
+        ...coordinates,
         description: profile.description,
         gender: profile.gender,
         phone: profile.phone,
@@ -98,6 +103,7 @@ export async function saveProfile(formData: FormData) {
       citySlug: profile.citySlug,
       areaSlug: profile.areaSlug,
       address: profile.address,
+      ...coordinates,
       description: profile.description,
       gender: profile.gender,
       phone: profile.phone,

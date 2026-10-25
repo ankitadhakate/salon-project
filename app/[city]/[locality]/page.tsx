@@ -1,11 +1,14 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { NearMe } from "@/components/near-me"
 import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
 import { WhatsAppShare } from "@/components/whatsapp-share"
 import { buttonVariants } from "@/components/ui/button"
 import { parseFilters, type SearchParams } from "@/lib/filters"
+import { parseNear, rankByDistance } from "@/lib/geo"
 import { typicalPriceLabel } from "@/lib/format"
 import { directoryEligible, robotsFor } from "@/lib/indexing"
 import { getLocality, listActiveCities } from "@/lib/places"
@@ -37,12 +40,15 @@ export default async function LocalityPage({ params, searchParams }: Props) {
   const { city: citySlug, locality: localitySlug } = await params
   const locality = await getLocality(citySlug, localitySlug)
   if (!locality) notFound()
-  const filters = parseFilters(await searchParams)
-  const [salons, cities, servicePrices] = await Promise.all([
+  const sp = await searchParams
+  const filters = parseFilters(sp)
+  const near = parseNear(sp)
+  const [listed, cities, servicePrices] = await Promise.all([
     listLiveSalons({ citySlug, areaSlug: locality.slug, ...filters }),
     listActiveCities(),
     areaServicePrices(citySlug, locality.slug),
   ])
+  const salons = rankByDistance(listed, near)
   const city = locality.city
   const priceRange = typicalPriceLabel(servicePrices)
   const intro = locality.intro.trim()
@@ -104,6 +110,12 @@ export default async function LocalityPage({ params, searchParams }: Props) {
             price: filters.price || "ANY",
           }}
         />
+        <Suspense fallback={null}>
+          <NearMe
+            citySlug={city.slug}
+            localities={(menu?.localities ?? []).map((area) => ({ slug: area.slug, name: area.name }))}
+          />
+        </Suspense>
       </div>
       <div className="mt-6 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
@@ -128,7 +140,7 @@ export default async function LocalityPage({ params, searchParams }: Props) {
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {salons.map((salon) => (
-            <SalonCard key={salon.id} salon={salon} />
+            <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
           ))}
         </ul>
       )}

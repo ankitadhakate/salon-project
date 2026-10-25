@@ -1,10 +1,13 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
+import { NearMe } from "@/components/near-me"
 import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
 import { buttonVariants } from "@/components/ui/button"
 import { filtersToQuery, parseFilters, searchParam, type SearchParams } from "@/lib/filters"
+import { parseNear, rankByDistance, withNearQuery } from "@/lib/geo"
 import { directoryEligible, robotsFor } from "@/lib/indexing"
 import { getActiveCity, listActiveCities } from "@/lib/places"
 import { countRealSalons, listLiveSalons } from "@/lib/salons"
@@ -40,13 +43,15 @@ export default async function CityPage({ params, searchParams }: Props) {
   const filters = parseFilters(sp)
   if (areaValue && city.localities.some((area) => area.slug === areaValue)) {
     const query = filtersToQuery(filters)
-    redirect(query ? `/${city.slug}/${areaValue}${query}` : `/${city.slug}/${areaValue}`)
+    redirect(withNearQuery(query ? `/${city.slug}/${areaValue}${query}` : `/${city.slug}/${areaValue}`, sp))
   }
+  const near = parseNear(sp)
 
-  const [salons, cities] = await Promise.all([
+  const [listed, cities] = await Promise.all([
     listLiveSalons({ citySlug: city.slug, ...filters }),
     listActiveCities(),
   ])
+  const salons = rankByDistance(listed, near)
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -83,6 +88,12 @@ export default async function CityPage({ params, searchParams }: Props) {
           cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}
           defaults={{ city: city.slug, service: filters.service, gender: filters.gender || "ANY", price: filters.price || "ANY" }}
         />
+        <Suspense fallback={null}>
+          <NearMe
+            citySlug={city.slug}
+            localities={city.localities.map((area) => ({ slug: area.slug, name: area.name }))}
+          />
+        </Suspense>
       </div>
       <div className="mt-6 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
@@ -98,7 +109,9 @@ export default async function CityPage({ params, searchParams }: Props) {
         <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
           <p className="font-heading text-2xl">No salons in {city.name} match that yet</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Try another locality, or list the salon you run.
+            {near?.km
+              ? `Nothing with a map pin within ${near.km} km. Widen the distance, or pick a locality.`
+              : "Try another locality, or list the salon you run."}
           </p>
           <Link href="/for-salons" className={cn(buttonVariants(), "mt-4 h-11 px-4")}>
             List your salon
@@ -107,7 +120,7 @@ export default async function CityPage({ params, searchParams }: Props) {
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {salons.map((salon) => (
-            <SalonCard key={salon.id} salon={salon} />
+            <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
           ))}
         </ul>
       )}

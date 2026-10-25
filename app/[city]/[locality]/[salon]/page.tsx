@@ -3,10 +3,14 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { ContactActions } from "@/components/contact-actions"
+import { SalonMap } from "@/components/salon-map"
+import { TrackedLink } from "@/components/tracked-link"
+import { buttonVariants } from "@/components/ui/button"
 import { SalonFallback } from "@/components/salon-fallback"
 import { WhatsAppShare } from "@/components/whatsapp-share"
 import { SERVICE_CATEGORIES, DAYS } from "@/lib/constants"
 import {
+  directionsHref,
   formatDay,
   formatDuration,
   formatPhone,
@@ -23,6 +27,7 @@ import { getSalonBySlug, viewerCanSee } from "@/lib/salons"
 import { siteName } from "@/lib/site"
 import { recordStat } from "@/lib/stats"
 import { appUrl } from "@/lib/urls"
+import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ city: string; locality: string; salon: string }> }
 
@@ -93,6 +98,10 @@ export default async function SalonPage({ params }: Props) {
       addressRegion: salon.city.name,
       addressCountry: salon.city.countryCode,
     },
+    geo:
+      salon.latitude != null && salon.longitude != null
+        ? { "@type": "GeoCoordinates", latitude: salon.latitude, longitude: salon.longitude }
+        : undefined,
     priceRange: salon.startingPrice != null ? `From ${inr(salon.startingPrice)}` : undefined,
     openingHoursSpecification: salon.hours
       .filter((hour) => !hour.closed)
@@ -178,6 +187,22 @@ export default async function SalonPage({ params }: Props) {
             {salon.address}
             <span className="block">{place}</span>
           </p>
+          <div className="mt-4 max-w-2xl">
+            {salon.latitude != null && salon.longitude != null ? (
+              <SalonMap latitude={salon.latitude} longitude={salon.longitude} label={salon.name} />
+            ) : (
+              <p className="text-sm text-muted-foreground">This salon has not dropped a map pin yet.</p>
+            )}
+            <TrackedLink
+              salonId={salon.id}
+              kind="directions"
+              href={directionsHref(salon.latitude, salon.longitude, salon.address, place)}
+              external
+              className={cn(buttonVariants({ variant: "outline" }), "mt-3 h-12 px-4 text-base")}
+            >
+              Directions
+            </TrackedLink>
+          </div>
           {salon.startingPrice != null ? (
             <p className="mt-3 text-lg font-medium">Services from {inr(salon.startingPrice)}</p>
           ) : null}
@@ -251,6 +276,8 @@ export default async function SalonPage({ params }: Props) {
               place={place}
               dialCode={salon.city.dialCode}
               salonId={salon.id}
+              latitude={salon.latitude}
+              longitude={salon.longitude}
             />
             <p className="mt-4 text-xs text-muted-foreground">
               {brand} doesn&apos;t take the booking or a fee. You&apos;re messaging the salon
@@ -271,6 +298,8 @@ export default async function SalonPage({ params }: Props) {
             place={place}
             dialCode={salon.city.dialCode}
             salonId={salon.id}
+            latitude={salon.latitude}
+            longitude={salon.longitude}
             layout="bar"
           />
         </div>

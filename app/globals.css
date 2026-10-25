@@ -136,3 +136,21 @@
     font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
   }
 }
+
+.salon-map {
+  z-index: 0;
+  isolation: isolate;
+  background: var(--muted);
+}
+
+.salon-map img {
+  max-width: none;
+  max-height: none;
+}
+
+.leaflet-marker-icon.salon-pin {
+  background: var(--primary);
+  border: 2px solid white;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}

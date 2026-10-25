@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db"
 import { getLocality } from "@/lib/places"
 import { defaultHours, getOwnerSalon, refreshSalonSearch, uniqueSlug } from "@/lib/salons"
 import { SUGGESTED_SERVICES, type SetupStep } from "@/lib/suggested-services"
+import { parsePin } from "@/lib/geo"
 import { normalizePhone } from "@/lib/validators"
 
 async function requireOwner() {
@@ -47,6 +48,10 @@ export async function saveSalonStep(formData: FormData) {
   if (!(GENDERS as readonly string[]).includes(gender)) {
     stepRedirect("salon", { error: "Choose who the salon is for." })
   }
+  const pin = parsePin(formData, true)
+  if (!pin.ok || pin.empty) {
+    stepRedirect("salon", { error: pin.ok ? "Search the address and drop the pin on the salon." : pin.error })
+  }
   const existing = await getOwnerSalon(user.id)
   if (!existing) {
     const slug = await uniqueSlug(citySlug, areaSlug, name)
@@ -58,6 +63,8 @@ export async function saveSalonStep(formData: FormData) {
         citySlug,
         areaSlug,
         address,
+        latitude: pin.latitude,
+        longitude: pin.longitude,
         gender,
         status: "DRAFT",
         isEarlyPartner: EARLY_PARTNER_PROGRAM,
@@ -74,7 +81,7 @@ export async function saveSalonStep(formData: FormData) {
   }
   await prisma.salon.update({
     where: { id: existing.id },
-    data: { name, slug, citySlug, areaSlug, address, gender },
+    data: { name, slug, citySlug, areaSlug, address, gender, latitude: pin.latitude, longitude: pin.longitude },
   })
   await refreshSalonSearch(existing.id)
   stepRedirect("contact", { notice: "Salon saved. Add a number customers can message." })

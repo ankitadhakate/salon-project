@@ -1,8 +1,12 @@
+import { Suspense } from "react"
 import Link from "next/link"
 import { AreaGrid } from "@/components/area-grid"
+import { NearMe } from "@/components/near-me"
 import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
 import { buttonVariants } from "@/components/ui/button"
+import type { SearchParams } from "@/lib/filters"
+import { parseNear, rankByDistance } from "@/lib/geo"
 import { listActiveCities } from "@/lib/places"
 import { countLiveByArea, listLiveSalons } from "@/lib/salons"
 import { siteName } from "@/lib/site"
@@ -18,14 +22,21 @@ const quickServices = [
   { slug: "manicure", name: "Manicure" },
 ]
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const sp = await searchParams
+  const near = parseNear(sp)
   const cities = await listActiveCities()
   const [salons, countEntries] = await Promise.all([
     listLiveSalons(),
     Promise.all(cities.map(async (city) => [city.slug, await countLiveByArea(city.slug)] as const)),
   ])
   const countsByCity = new Map(countEntries)
-  const preview = salons.slice(0, 6)
+  const ranked = rankByDistance(salons, near)
+  const preview = ranked.slice(0, 6)
   const name = siteName()
   const primary = cities[0]
   const jsonLd = {
@@ -75,6 +86,14 @@ export default async function HomePage() {
           ) : null}
           <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
             <SearchForm cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))} />
+            {primary ? (
+              <Suspense fallback={null}>
+                <NearMe
+                  citySlug={primary.slug}
+                  localities={primary.localities.map((area) => ({ slug: area.slug, name: area.name }))}
+                />
+              </Suspense>
+            ) : null}
           </div>
           {primary ? (
             <ul className="mt-4 hidden gap-2 overflow-x-auto pb-1 sm:flex">
@@ -95,14 +114,28 @@ export default async function HomePage() {
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
         <div className="mb-4 flex items-end justify-between gap-3">
-          <h2 className="font-heading text-3xl">Featured salons</h2>
+          <h2 className="font-heading text-3xl">{near ? "Salons near you" : "Featured salons"}</h2>
           {primary && salons.length > 0 ? (
-            <Link href={`/${primary.slug}`} className="text-sm font-medium text-primary">
+            <Link
+              href={
+                near
+                  ? `/${primary.slug}?lat=${near.lat.toFixed(5)}&lng=${near.lng.toFixed(5)}${near.km ? `&km=${near.km}` : ""}`
+                  : `/${primary.slug}`
+              }
+              className="text-sm font-medium text-primary"
+            >
               See all
             </Link>
           ) : null}
         </div>
-        {preview.length === 0 ? (
+        {preview.length === 0 && near ? (
+          <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+            <p className="font-heading text-2xl">Nothing pinned within {near.km ? `${near.km} km` : "range"}</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Widen the distance, or pick a locality.
+            </p>
+          </div>
+        ) : preview.length === 0 ? (
           <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
             <p className="font-heading text-2xl">No public listings yet</p>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
@@ -116,12 +149,12 @@ export default async function HomePage() {
           <>
             <ul className="grid gap-4 sm:hidden">
               {preview.slice(0, 4).map((salon) => (
-                <SalonCard key={salon.id} salon={salon} />
+                <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
               ))}
             </ul>
             <ul className="hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3">
               {preview.map((salon) => (
-                <SalonCard key={salon.id} salon={salon} />
+                <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
               ))}
             </ul>
           </>
