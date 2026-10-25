@@ -2,9 +2,17 @@
 
 This is the launch setup for [notsooboring.com](https://notsooboring.com). Nothing in this file creates an account or deploys the app. You run the steps.
 
-The app listens on `PORT` (Render sets it). `NEXT_PUBLIC_APP_URL` is the canonical origin. Change that one variable when a brand domain replaces notsooboring.com. Keep `ALLOW_INDEXING` false until the pages you want in search have real listings and written intros.
+The app listens on `PORT`. Cloud Run sets `PORT`, and `npm start` reads it (`next start -p ${PORT:-3847}`). `NEXT_PUBLIC_APP_URL` is the canonical origin. Change that one variable when a brand domain replaces notsooboring.com. Keep `ALLOW_INDEXING` false until the pages you want in search have real listings and written intros.
+
+The image command is `npm start`. It does not migrate and it does not seed. Run `npm run migrate:deploy` as a separate Cloud Run Job before sending traffic to a new revision. With `NODE_ENV=production` that job applies migrations and seeds the admin, cities, and areas. It does not load sample salons.
 
 ## Host
+
+The launch host is **Cloud Run**, **Cloud SQL**, and **Cloud Storage**, in `asia-south1`. Follow [Google Cloud](#google-cloud-cloud-run-cloud-sql-cloud-storage). The image is one stage. It is not a Next.js standalone build: the web service and the Cloud Run Job share it, and the job needs the Prisma CLI, `tsx`, and the seed.
+
+Render, below, is the single-container alternative. One instance runs the migrate script and then the app.
+
+### Render (single-container alternative)
 
 Use **Render**, in the **Singapore** region (closest Render region to India). Put the web service and Postgres in the same region and connect them with the internal database URL.
 
@@ -26,7 +34,7 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 1. Create an R2 bucket, for example `salon-photos`.
 2. Create an API token that can read and write that bucket.
 3. Turn on public access for the bucket, or attach a custom domain such as `images.notsooboring.com`.
-4. Note the S3 endpoint (`https://<accountid>.r2.cloudflarestorage.com`), the bucket name, the access key, the secret, and the public base URL. No trailing slash on the public URL.
+4. Note the S3 endpoint (`https://<accountid>.r2.cloudflarestorage.com`), the bucket name, the access key, the secret, and the public base URL. No trailing slash on the public URL. The environment table below is the Cloud Storage launch setup. For this Render path, set `S3_ENDPOINT` to the R2 endpoint, `S3_FORCE_PATH_STYLE=false`, and `S3_PUBLIC_URL` to the R2 public origin.
 
 ## 2. Render Postgres
 
@@ -36,12 +44,10 @@ Railway Hobby is $5 of included usage, and an always-on Next.js app plus Postgre
 ## 3. Render web service
 
 1. New Web Service from this Git repository. Environment: Docker. Region: Singapore. Instance: `0.5c-512mb`.
-2. Set the Docker command to `sh -c "sh scripts/migrate-job.sh && exec sh scripts/entrypoint.sh"`. Render runs one instance, so that command migrates, creates the admin if missing, then starts Next.js on `$PORT`. The image command alone only starts Next.js. An empty command does not migrate.
+2. Set the Docker command to `sh -c "npm run migrate:deploy && exec npm start"`. Render runs one instance, so that command migrates, seeds, then starts Next.js on `$PORT`. The image command alone is `npm start` and does not migrate.
 3. Add the environment variables below, then deploy.
 
-The migrate job applies `prisma/migrations` and runs `prisma/ensure-admin.ts` when `NODE_ENV=production`. That creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if that user does not exist yet. It does not load cities or sample salons.
-
-The sample seed (`npm run db:seed`, and the `prisma.seed` hook) refuses to run when `NODE_ENV=production`. The migrate job never runs it. Do not point a production shell at `npm run db:seed`. Add cities, localities, and service pages in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
+`npm run migrate:deploy` applies `prisma/migrations` and runs the seed. When `NODE_ENV=production` the seed creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` if that user does not exist yet, and upserts the launch city and its areas. It does not load sample salons or sample owners. Service pages are still added in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
 
 ## Environment variables
 
@@ -61,40 +67,51 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 | `ADMIN_NAME` | Display name for the admin |
 | `SHOW_DEMO_LISTINGS` | Leave unset, or `false` |
 | `IMAGE_DRIVER` | `s3` |
-| `S3_BUCKET` | R2 bucket name |
+| `S3_BUCKET` | Cloud Storage bucket name |
 | `S3_REGION` | `auto` |
-| `S3_ENDPOINT` | `https://<accountid>.r2.cloudflarestorage.com` |
-| `S3_ACCESS_KEY_ID` | R2 access key |
-| `S3_SECRET_ACCESS_KEY` | R2 secret |
-| `S3_PUBLIC_URL` | Public photo origin, no trailing slash |
-| `S3_FORCE_PATH_STYLE` | `false` |
+| `S3_ENDPOINT` | `https://storage.googleapis.com` |
+| `S3_ACCESS_KEY_ID` | HMAC access key |
+| `S3_SECRET_ACCESS_KEY` | HMAC secret |
+| `S3_PUBLIC_URL` | `https://storage.googleapis.com/<bucket>`, no trailing slash |
+| `S3_FORCE_PATH_STYLE` | `true` |
 | `BACKUP_S3_BUCKET` | Optional. Off-site dump bucket for `scripts/pg-dump.sh`. Leave unset to keep dumps local only |
 
 Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for magic-link email, claim confirmation codes, and the note sent when an owner changes a contact number. Without SMTP, owners use their password, and a claim link cannot be finished in production because the confirmation email cannot be sent. Optional: `AUTO_APPROVE_LISTINGS=true` only if you want the first submissions to skip review. The admin screen overrides that after the setting row exists. Optional: `BACKUP_S3_BUCKET` for `scripts/pg-dump.sh`. It reuses the `S3_*` credentials. See [RESTORE.md](RESTORE.md).
 
-`NODE_ENV=production` is set by Render. You do not need to add it. The migrate job sees that value and creates the admin without loading sample salons.
+`NODE_ENV=production` is set by Cloud Run and by Render. You do not need to add it. The migrate job sees that value and seeds the admin, cities, and areas without sample salons.
 
-Photo uploads and `scripts/pg-dump.sh` send S3 checksums only when the operation requires them. Cloudflare R2 rejects the AWS SDK and CLI default flexible checksums.
+Photo uploads send S3 checksums only when the operation requires them (`WHEN_REQUIRED`). The Cloud Storage XML API and Cloudflare R2 both reject the AWS SDK default. `scripts/pg-dump.sh` sets the same checksum mode for `aws s3 cp`.
 
-## Google Cloud (Cloud Run, Cloud SQL, Firebase Hosting)
+## Google Cloud (Cloud Run, Cloud SQL, Cloud Storage)
 
-Use this instead of the Render steps when the site runs on Google Cloud. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `web`. Keep `ALLOW_INDEXING` false.
+This is the launch host. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `web`. Keep `ALLOW_INDEXING` false.
+
+### Photos (Cloud Storage XML API)
+
+1. Create a bucket, for example `salon-photos`, in the same region.
+2. Create an HMAC key for a service account that can write objects in that bucket.
+3. Make objects readable at `https://storage.googleapis.com/<bucket>/<object>`, or put a public base URL of your own in `S3_PUBLIC_URL`. No trailing slash.
+4. Set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The app stores each photo at `S3_PUBLIC_URL` plus the object key.
+
+The same variables work for Cloudflare R2. Use the R2 S3 endpoint, `S3_FORCE_PATH_STYLE=false`, and the R2 public URL.
 
 ### Image
 
 Build this Dockerfile and push it to Artifact Registry. The build passes placeholder `DATABASE_URL` and `DIRECT_URL` into `prisma generate` only. Those values are not stored in the image. Set the real URLs on the Cloud Run service and on the job.
 
-The image command is `sh scripts/entrypoint.sh`, which only runs `next start` on `$PORT` (Cloud Run sets `PORT`). Do not point the web service at the migrate script. Several replicas would migrate at once.
+Leave the container command empty so the image command runs: `npm start`. That listens on `PORT`, which Cloud Run sets. Do not point the web service at `npm run migrate:deploy`. Several replicas would migrate at once.
+
+The Dockerfile stays one stage on purpose. A standalone runner would drop the Prisma CLI and the seed, and this job runs both from the same image.
 
 ### Migrate job
 
 Create a Cloud Run Job from the same image. Container command:
 
 ```sh
-sh scripts/migrate-job.sh
+npm run migrate:deploy
 ```
 
-Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs the same `DATABASE_URL`, `DIRECT_URL`, `NODE_ENV=production`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. In production it applies migrations and creates the admin if that email does not exist yet. It never loads sample salons. If `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
+Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. It applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. If `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
 
 Attach the Cloud SQL instance to both the service and the job.
 
@@ -120,9 +137,9 @@ If `DATABASE_URL` goes through a pooler, `DIRECT_URL` stays the direct socket UR
 
 `/_next/static` is cached for one year and marked immutable by the app (`next.config.ts`) and by the matching header in `firebase.json`. HTML stays dynamic. Do not add a Hosting cache rule for `**`.
 
-### R2
+### Checksums
 
-Use the same R2 variables as the Render table. The S3 client and the dump upload set checksums to required-only so R2 accepts `PutObject`, `DeleteObject`, and `aws s3 cp`.
+`lib/storage.ts` sets `requestChecksumCalculation` and `responseChecksumValidation` to `WHEN_REQUIRED` on the S3 client used for uploads and deletes. That is what the Cloud Storage XML API accepts.
 
 ## 4. DNS for notsooboring.com
 
@@ -171,7 +188,7 @@ When the brand domain is ready, add it the same way, set `NEXT_PUBLIC_APP_URL` t
 
 ## Backups
 
-Use the paid Render Postgres plan so the host keeps its own backups. Also take a logical dump you control:
+Cloud SQL keeps its own backups. On the Render alternative, use the paid Postgres plan so that host keeps its own backups too. Also take a logical dump you control:
 
 ```sh
 DATABASE_URL="postgresql://…" sh scripts/pg-dump.sh

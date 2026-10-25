@@ -40,7 +40,7 @@ Created by the seed. Change `ADMIN_PASSWORD` before you seed anything you care a
 | Salon owner (sample) | demo-owner@example.local | demo-owner-dev |
 | Admin | admin@example.local | admin-dev-pass |
 
-The login page shows these only when `NODE_ENV` is not production. The seed refuses to run when `NODE_ENV=production`. Production boot creates the admin with `npm run db:admin` and does not load sample salons.
+The login page shows these only when `NODE_ENV` is not production. With `NODE_ENV=production`, `npm run db:seed` creates the admin, cities, and areas, and does not load sample salons. The Cloud Run container does not seed on boot. `npm run migrate:deploy` does.
 
 ### Sample listings
 
@@ -128,7 +128,7 @@ See `.env.example`. Production rejects the development secret, the development a
 
 ## Images
 
-`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloudflare R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`. The client sets request and response checksums to `WHEN_REQUIRED`, because R2 rejects the SDK default.
+`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloud Storage, set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The client sets request and response checksums to `WHEN_REQUIRED`, which that XML API accepts. The same settings work for R2 with its own endpoint and public URL.
 
 Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 
@@ -138,9 +138,9 @@ Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, check
 | --- | --- |
 | `npm run dev` | Dev server on port 3847 |
 | `npm run db:setup` | Apply migrations and seed |
-| `sh scripts/migrate-job.sh` | Apply migrations and, in production, create the admin. Does not seed. Cloud Run runs this as a job. |
+| `npm run migrate:deploy` | Apply migrations, then seed. In production the seed is the admin, cities, and areas only. Cloud Run runs this as a job. |
 | `npm run db:admin` | Create the admin user only. Safe in production. |
 | `npm run db:clear-demo` | Delete sample listings and sample users |
 | `sh scripts/pg-dump.sh` | Write a Postgres dump. See RESTORE.md. |
-| `npm run build` / `npm start` | Production build and server. `start` listens on `PORT` or 3847. |
+| `npm run build` / `npm start` | Production build and server. `start` listens on `PORT`, or 3847 when `PORT` is unset. Cloud Run sets `PORT`. |
 | `npm run lint` | ESLint |

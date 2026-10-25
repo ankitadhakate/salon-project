@@ -27,8 +27,9 @@ services:
       DATABASE_URL: postgresql://salon:salon@db:5432/salon
       DIRECT_URL: postgresql://salon:salon@db:5432/salon
       NODE_ENV: production
-    # One container, so migrate then listen. Cloud Run uses the image command and a separate job.
-    command: ["sh", "-c", "sh scripts/migrate-job.sh && exec sh scripts/entrypoint.sh"]
+    # One container, so migrate and seed, then listen. Cloud Run uses the image
+    # command (npm start) and runs npm run migrate:deploy as a separate job.
+    command: ["sh", "-c", "npm run migrate:deploy && exec npm start"]
     depends_on:
       db:
         condition: service_healthy

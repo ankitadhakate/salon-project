@@ -97,7 +97,7 @@ function requiredEnv(name: string) {
   return value
 }
 
-// R2 rejects the SDK default (WHEN_SUPPORTED) flexible checksums.
+// GCS XML API and R2 both reject the SDK default (WHEN_SUPPORTED) flexible checksums.
 async function s3Client() {
   const { S3Client } = await import("@aws-sdk/client-s3")
   return new S3Client({
@@ -128,6 +128,8 @@ class S3ImageStorage implements ImageStorage {
         ContentType: "image/webp",
       }),
     )
+    // S3_PUBLIC_URL is the public base, including the bucket for path-style hosts
+    // such as https://storage.googleapis.com/<bucket>.
     const base = (process.env.S3_PUBLIC_URL || "").replace(/\/$/, "")
     const url = base
       ? `${base}/${key}`

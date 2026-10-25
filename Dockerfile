@@ -20,6 +20,6 @@ RUN npx prisma generate && npx next build
 
 EXPOSE 3847
 
-# Web only: next start. Cloud Run Job command: sh scripts/migrate-job.sh
-# A single-instance host (Render, docker compose) runs the migrate job first. See DEPLOY.md.
-CMD ["sh", "scripts/entrypoint.sh"]
+# Web only. Cloud Run sets PORT. Job command: npm run migrate:deploy
+# Do not migrate or seed here. Several replicas would race.
+CMD ["npm", "start"]

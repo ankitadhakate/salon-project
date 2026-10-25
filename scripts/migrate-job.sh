@@ -1,7 +1,7 @@
 #!/bin/sh
-# Cloud Run Job, or the one-shot command a single-instance host runs before listen.
-# Applies migrations and, in production, creates the admin if missing.
-# Never loads sample salons. The web process (scripts/entrypoint.sh) does not migrate.
+# Cloud Run Job. The web container does not run this.
+# Applies migrations, then seeds. When NODE_ENV=production the seed writes the
+# admin, cities, and areas only. It does not load sample salons.
 set -eu
 
 if [ -z "${DATABASE_URL:-}" ]; then
@@ -17,9 +17,5 @@ fi
 echo "Applying database migrations"
 npx prisma migrate deploy
 
-if [ "${NODE_ENV:-}" = "production" ]; then
-  echo "Production migrate job: ensuring the admin exists. Sample salons are not loaded."
-  npx tsx prisma/ensure-admin.ts
-else
-  echo "NODE_ENV is not production. Migrations applied. The seed was not run."
-fi
+echo "Seeding"
+npx tsx prisma/seed.ts

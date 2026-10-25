@@ -1,6 +1,5 @@
 #!/bin/sh
-# Web process only. Migrations run in scripts/migrate-job.sh so several
-# Cloud Run replicas cannot migrate at the same time.
+# Web process only. Migrations and the seed run in npm run migrate:deploy.
 set -eu
 
 if [ -z "${DIRECT_URL:-}" ] && [ -n "${DATABASE_URL:-}" ]; then

@@ -27,8 +27,8 @@ The web image installs `postgresql-client`, so a one-off shell on the web servic
    ```
 
    If the database itself is gone, create an empty one first (`createdb` or the Render dashboard), then run the same command without `--clean`.
-4. Run `sh scripts/migrate-job.sh` before the web process listens. On Render, starting the service with the Docker command in DEPLOY.md does this. On Cloud Run, execute the migrate job, then start the service. Migrations that are already in the dump are skipped. A migration added after the dump was taken is applied.
-5. Check a row you know. For example, the admin email and one live salon's name and phone. Open that salon's public page and confirm the photos still load from R2. If a photo 404s, the database row points at an object that is not in the bucket. That is not fixed by restoring Postgres again.
+4. Run `npm run migrate:deploy` before the web process listens. On Cloud Run, execute that job, then start the service. On Render, the Docker command in DEPLOY.md does this. Migrations that are already in the dump are skipped. A migration added after the dump was taken is applied. When `NODE_ENV=production` the seed in that command writes the admin, cities, and areas, and does not load sample salons.
+5. Check a row you know. For example, the admin email and one live salon's name and phone. Open that salon's public page and confirm the photos still load from the photo bucket (`S3_PUBLIC_URL`). If a photo 404s, the database row points at an object that is not in the bucket. That is not fixed by restoring Postgres again.
 6. Resume the web service. Sign in as the admin from `ADMIN_EMAIL`. The dump's password hash is the one that was current when you dumped, which may not match today's `ADMIN_PASSWORD`.
 
 ## If the dump is older than a contact-number change

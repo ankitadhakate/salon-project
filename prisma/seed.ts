@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import bcrypt from "bcryptjs"
@@ -284,16 +283,9 @@ function searchBlob(demo: DemoSalon, areaName: string) {
 }
 
 async function main() {
-  if (process.env.NODE_ENV === "production") {
-    console.error(
-      "Refusing to seed while NODE_ENV=production. Production boot does not load cities or sample salons. The admin account is created by prisma/ensure-admin.ts. Add cities in the admin screen, and run npm run db:clear-demo before launch if sample rows were loaded earlier.",
-    )
-    process.exit(1)
-  }
-  const { isProduction } = await import("../lib/production")
+  const { assertProductionRuntime, isProduction } = await import("../lib/production")
   const { prisma } = await import("../lib/db")
-  const demoPassword = isProduction() ? randomBytes(24).toString("base64url") : "demo-owner-dev"
-  const passwordHash = await bcrypt.hash(demoPassword, 10)
+  if (isProduction()) assertProductionRuntime()
 
   await prisma.city.upsert({
     where: { slug: LAUNCH_CITY.slug },
@@ -321,6 +313,37 @@ async function main() {
       },
     })
   }
+
+  if (isProduction()) {
+    const adminEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase()
+    const adminPassword = process.env.ADMIN_PASSWORD || ""
+    const existing = await prisma.user.findUnique({ where: { email: adminEmail } })
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          name: process.env.ADMIN_NAME || "Admin",
+          passwordHash: await bcrypt.hash(adminPassword, 10),
+          role: "ADMIN",
+        },
+      })
+      console.log(`Created admin ${adminEmail}`)
+    } else if (existing.role !== "ADMIN") {
+      throw new Error(
+        `Refusing to change ${adminEmail} into an admin. That email already has a ${existing.role} account.`,
+      )
+    } else {
+      console.log(`Admin ${adminEmail} already exists. The password was not changed.`)
+    }
+    console.log(
+      `Production seed: ${LAUNCH_CITY.name} and ${LAUNCH_LOCALITIES.length} areas. Sample salons were not loaded.`,
+    )
+    await prisma.$disconnect()
+    return
+  }
+
+  const demoPassword = "demo-owner-dev"
+  const passwordHash = await bcrypt.hash(demoPassword, 10)
 
   for (const [index, guide] of LAUNCH_SERVICES.entries()) {
     await prisma.serviceGuide.upsert({
