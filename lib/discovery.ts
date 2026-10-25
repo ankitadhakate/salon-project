@@ -22,6 +22,26 @@ export type SavedPlace = {
   km: SearchRadius
 }
 
+export type GeoPermission = "granted" | "prompt" | "denied" | "unknown"
+
+/** What the home page should do before painting a location field. */
+export function nextLocationStep(input: {
+  ask: boolean
+  hasSaved: boolean
+  permission: GeoPermission
+}): "saved" | "request" | "enter" {
+  if (input.ask) return "enter"
+  if (input.hasSaved) return "saved"
+  if (input.permission === "denied") return "enter"
+  return "request"
+}
+
+/** A prompt that is still 'prompt' after an error means the browser wanted a click. */
+export function locationAfterGeoError(code: number, permission: GeoPermission): "choose" | "enter" {
+  if (code === 1 && permission !== "denied") return "choose"
+  return "enter"
+}
+
 export function defaultCity<T extends { slug: string; name: string }>(cities: T[]): T | null {
   return (
     cities.find((city) => city.slug === "pune" || city.name.toLowerCase() === "pune") ?? cities[0] ?? null

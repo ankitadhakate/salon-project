@@ -47,7 +47,7 @@ function DialogContent({
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
-  placement?: "center" | "sheet" | "full"
+  placement?: "center" | "sheet" | "panel" | "full"
 }) {
   return (
     <DialogPortal>
@@ -60,6 +60,8 @@ function DialogContent({
             "top-1/2 left-1/2 grid max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-popover text-popover-foreground sm:max-w-sm data-open:zoom-in-95 data-closed:zoom-out-95",
           placement === "sheet" &&
             "inset-x-0 bottom-0 grid max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-popover pb-[max(1rem,env(safe-area-inset-bottom))] text-popover-foreground",
+          placement === "panel" &&
+            "inset-x-0 bottom-0 grid max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-popover pb-[max(1rem,env(safe-area-inset-bottom))] text-popover-foreground lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-96 lg:rounded-none lg:rounded-l-2xl",
           placement === "full" &&
             "inset-0 flex h-[100dvh] max-w-none items-center justify-center rounded-none bg-foreground text-background",
           className

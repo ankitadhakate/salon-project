@@ -5,15 +5,11 @@ import { formatDistance } from "@/lib/geo"
 import { genderLabel, inr, isOpenNow } from "@/lib/format"
 import type { SalonCard as SalonCardData } from "@/lib/salons"
 
-function priceLabel(prices: number[], starting: number | null) {
+function fromPrice(prices: number[], starting: number | null) {
   const values = prices.filter((price) => price > 0)
-  if (values.length === 0) {
-    return starting != null ? `from ${inr(starting)}` : "Price list coming soon"
-  }
-  const low = Math.min(...values)
-  const high = Math.max(...values)
-  if (low === high) return inr(low)
-  return `${inr(low)}–${inr(high)}`
+  const low = values.length > 0 ? Math.min(...values) : starting
+  if (low == null || low <= 0) return null
+  return `from ${inr(low)}`
 }
 
 export function SalonCard({
@@ -32,15 +28,17 @@ export function SalonCard({
   const open = salon.hours.length
     ? isOpenNow(salon.hours, salon.city?.timezone || "Asia/Kolkata")
     : null
-  const prices = salon.services.map((service) => service.priceInr)
-  const priced = prices.some((price) => price > 0) || salon.startingPrice != null
+  const price = fromPrice(
+    salon.services.map((service) => service.priceInr),
+    salon.startingPrice,
+  )
   return (
     <li className={className}>
       <Link
         href={href}
-        className="card-lift group flex h-full flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-border"
+        className="card-lift group flex h-full flex-col overflow-hidden rounded-[1.5rem] bg-white shadow-card ring-1 ring-black/5"
       >
-        <div className="relative aspect-[16/10] overflow-hidden bg-blush-soft">
+        <div className="relative aspect-[3/2] overflow-hidden bg-blush-soft">
           {photo ? (
             // Owner uploads and sample SVGs. next/image does not allow SVG.
             // eslint-disable-next-line @next/next/no-img-element
@@ -59,32 +57,27 @@ export function SalonCard({
               <SampleBadge />
             </span>
           ) : null}
-          {priced ? (
-            <span className="absolute top-3 right-3 inline-flex h-7 max-w-[68%] items-center truncate rounded-full bg-mustard px-2.5 text-xs font-semibold text-foreground">
-              {priceLabel(prices, salon.startingPrice)}
-            </span>
-          ) : null}
-          {distanceKm != null ? (
-            <span className="absolute bottom-3 left-3 inline-flex h-7 items-center rounded-full bg-card/95 px-2.5 text-xs font-semibold text-foreground">
-              {formatDistance(distanceKm)}
-            </span>
-          ) : null}
-          {open === true ? (
-            <span className="absolute right-3 bottom-3 inline-flex h-7 items-center gap-1.5 rounded-full bg-card/95 px-2.5 text-xs font-semibold text-foreground">
-              <span className="size-2 rounded-full bg-sage-ink" aria-hidden />
-              Open
-            </span>
-          ) : null}
         </div>
-        <div className="flex flex-1 flex-col gap-1.5 p-4">
-          <h3 className="font-heading text-lg leading-tight group-hover:text-sage-ink">{salon.name}</h3>
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="font-heading text-xl leading-tight group-hover:text-sage-ink">{salon.name}</h3>
+            {open === true ? (
+              <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-medium">
+                <span className="size-2 rounded-full bg-sage-ink" aria-hidden />
+                Open
+              </span>
+            ) : open === false ? (
+              <span className="mt-1 shrink-0 text-sm text-muted-foreground">Closed</span>
+            ) : null}
+          </div>
           <p className="text-sm text-muted-foreground">
             {area}
+            {distanceKm != null ? ` · ${formatDistance(distanceKm)}` : ""}
             {` · ${genderLabel(salon.gender)}`}
           </p>
-          {open === false ? <p className="text-sm font-medium text-muted-foreground">Closed</p> : null}
+          {price ? <p className="text-sm font-semibold">{price}</p> : null}
           {salon.isEarlyPartner ? (
-            <div className="mt-auto pt-2">
+            <div className="mt-auto pt-1">
               <EarlyPartnerBadge />
             </div>
           ) : null}

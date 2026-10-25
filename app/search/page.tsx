@@ -66,10 +66,12 @@ export default async function SearchPage({
       <div className="mt-4">
         <OmniSearch initial={query.q} />
       </div>
-      <div className="mt-4 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <SearchFilters query={query} />
-        <div className="min-w-0">
+      <div className="mt-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchFilters query={query} />
           <FilterChips query={query} />
+        </div>
+        <div className="min-w-0">
           {listed.salons.length === 0 ? (
             <div className="mt-4 rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
               <p className="font-heading text-2xl">No salons match</p>
