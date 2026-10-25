@@ -1,12 +1,14 @@
 /** Shared Cache-Control values. firebase.json repeats IMMUTABLE_CACHE for Hosting. */
 
-export const PUBLIC_PAGE_CACHE = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400"
+export const PUBLIC_PAGE_CACHE = "public, s-maxage=300, stale-while-revalidate=600"
 
 export const PRIVATE_NO_STORE = "private, no-store"
 
 export const IMMUTABLE_CACHE =
   "public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable"
 
+// Cookie-setting routes live under these prefixes (session, claim, logout). A response
+// that sets a cookie must stay private, and these paths are private even with no cookie.
 const PRIVATE_PREFIXES = ["/admin", "/dashboard", "/login", "/signup", "/auth", "/partner", "/api"]
 
 export function isPrivatePage(pathname: string) {

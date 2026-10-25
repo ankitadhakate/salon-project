@@ -185,3 +185,18 @@ test("resolver rejects non-allowlisted hosts and redirects", async () => {
   assert.equal(consentOff.ok, false)
   assert.equal(consentOff.ok ? "" : consentOff.error, MAPS_LINK_ERRORS.leftGoogle)
 })
+
+test("rejects a consent.google.com continue URL that leaves Google", async () => {
+  const off = await resolveMapsLink(
+    "https://consent.google.com/m?continue=" + encodeURIComponent("https://evil.example/maps/@18.5,73.8,15z"),
+  )
+  assert.equal(off.ok, false)
+  assert.equal(off.ok ? "" : off.error, MAPS_LINK_ERRORS.leftGoogle)
+
+  const lookalike = await resolveMapsLink(
+    "https://consent.google.com/m?continue=" +
+      encodeURIComponent("https://google.com.evil.example/maps/@18.5,73.8,15z"),
+  )
+  assert.equal(lookalike.ok, false)
+  assert.equal(lookalike.ok ? "" : lookalike.error, MAPS_LINK_ERRORS.leftGoogle)
+})

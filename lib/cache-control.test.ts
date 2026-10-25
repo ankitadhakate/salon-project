@@ -10,13 +10,27 @@ test("public pages get a shared cache with stale-while-revalidate", () => {
   for (const pathname of ["/", "/for-salons", "/example-city", "/example-city/central", "/example-city/central/atelier"]) {
     assert.equal(cacheControlFor({ ...anon, pathname }), PUBLIC_PAGE_CACHE)
   }
-  assert.match(PUBLIC_PAGE_CACHE, /public/)
-  assert.match(PUBLIC_PAGE_CACHE, /s-maxage=\d+/)
-  assert.match(PUBLIC_PAGE_CACHE, /stale-while-revalidate=\d+/)
+  assert.equal(PUBLIC_PAGE_CACHE, "public, s-maxage=300, stale-while-revalidate=600")
 })
 
 test("owner, auth, and session responses are private", () => {
-  for (const pathname of ["/admin", "/admin/anything", "/partner", "/partner/login", "/partner/edit", "/dashboard", "/login", "/signup", "/auth/magic", "/api/geocode"]) {
+  for (const pathname of [
+    "/admin",
+    "/admin/anything",
+    "/dashboard",
+    "/dashboard/stats",
+    "/partner",
+    "/partner/login",
+    "/partner/edit",
+    "/partner/claim/token",
+    "/partner/claim/verify",
+    "/login",
+    "/signup",
+    "/auth/magic",
+    "/auth/logout",
+    "/api/geocode",
+    "/api/salon-stats",
+  ]) {
     assert.equal(cacheControlFor({ ...anon, pathname }), PRIVATE_NO_STORE)
   }
   assert.equal(cacheControlFor({ ...anon, pathname: "/", hasSession: true }), PRIVATE_NO_STORE)
