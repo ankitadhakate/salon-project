@@ -15,14 +15,14 @@ import { sendClaimCodeMail, smtpConfigured } from "@/lib/mail"
 import { actionClientIp, limitClaim } from "@/lib/rate-limit"
 import { auditListing, reviewNotice } from "@/lib/review"
 import { appUrl } from "@/lib/urls"
-import { EARLY_PARTNER_PROGRAM, GENDERS } from "@/lib/constants"
+import { EARLY_PARTNER_PROGRAM, GENDERS, MAX_SERVICES } from "@/lib/constants"
 import { prisma } from "@/lib/db"
 import { getLocality } from "@/lib/places"
 import { defaultHours, getOwnerSalon, refreshSalonSearch, uniqueSlug } from "@/lib/salons"
 import { SUGGESTED_SERVICES, type SetupStep } from "@/lib/suggested-services"
 import { parsePin } from "@/lib/geo"
 import { readMapsUrl } from "@/lib/maps-link"
-import { normalizePhone } from "@/lib/validators"
+import { normalizePhone, parseCustomServices } from "@/lib/validators"
 
 async function requireOwner() {
   const user = await getSessionUser()
@@ -180,9 +180,24 @@ export async function saveServicesStep(formData: FormData) {
       sortOrder: picks.length,
     })
   })
-  if (!picks.length) stepRedirect("services", { error: "Tick at least one service.", field: "services" })
-  const before = salon.services.map((service) => `${service.category}:${service.name}:${service.priceInr}`).join(", ")
+  const customs = parseCustomServices(formData)
+  if (!customs.ok) stepRedirect("services", { error: customs.error, field: "services" })
   const suggested = new Set(SUGGESTED_SERVICES.map((service) => `${service.category}:${service.name}`))
+  for (const row of customs.rows) {
+    if (suggested.has(`${row.category}:${row.name}`)) {
+      stepRedirect("services", {
+        error: `${row.name} is already in the list above. Tick that one instead.`,
+        field: "services",
+      })
+    }
+  }
+  if (!picks.length && customs.rows.length === 0) {
+    stepRedirect("services", { error: "Tick at least one service, or add your own.", field: "services" })
+  }
+  if (picks.length + customs.rows.length > MAX_SERVICES) {
+    stepRedirect("services", { error: `List up to ${MAX_SERVICES} services.`, field: "services" })
+  }
+  const before = salon.services.map((service) => `${service.category}:${service.name}:${service.priceInr}`).join(", ")
   const picked = new Set(picks.map((pick) => `${pick.category}:${pick.name}`))
   for (const pick of picks) {
     const found = salon.services.find((service) => service.category === pick.category && service.name === pick.name)
@@ -207,9 +222,31 @@ export async function saveServicesStep(formData: FormData) {
     (service) =>
       suggested.has(`${service.category}:${service.name}`) && !picked.has(`${service.category}:${service.name}`),
   )
-  if (dropped.length) {
-    await prisma.service.deleteMany({ where: { id: { in: dropped.map((service) => service.id) } } })
+  const existingCustom = salon.services.filter(
+    (service) => !suggested.has(`${service.category}:${service.name}`),
+  )
+  const nextCustom = new Set(customs.rows.map((row) => `${row.category}:${row.name}`))
+  const droppedCustom = existingCustom.filter((service) => !nextCustom.has(`${service.category}:${service.name}`))
+  const removed = [...dropped, ...droppedCustom]
+  if (removed.length) {
+    await prisma.service.deleteMany({ where: { id: { in: removed.map((service) => service.id) } } })
   }
+  let sortOrder = picks.length
+  for (const row of customs.rows) {
+    const found = existingCustom.find((service) => service.category === row.category && service.name === row.name)
+    if (!found) {
+      await prisma.service.create({ data: { salonId: salon.id, ...row, sortOrder } })
+    } else {
+      await prisma.service.update({ where: { id: found.id }, data: { ...row, sortOrder } })
+    }
+    sortOrder += 1
+  }
+  const saved = [
+    ...picks.map((pick) => `${pick.category}:${pick.name}:${pick.priceInr}`),
+    ...customs.rows.map(
+      (row) => `${row.category}:${row.name}:${row.priceFrom ? "from " : ""}${row.priceInr}`,
+    ),
+  ]
   const review = await auditListing({
     salonId: salon.id,
     actorId: user.id,
@@ -219,7 +256,7 @@ export async function saveServicesStep(formData: FormData) {
       {
         field: "services",
         oldValue: before,
-        newValue: picks.map((pick) => `${pick.category}:${pick.name}:${pick.priceInr}`).join(", "),
+        newValue: saved.join(", "),
       },
     ],
   })

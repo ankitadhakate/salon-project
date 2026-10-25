@@ -26,14 +26,37 @@ async function locationDenied() {
   })
   const page = await context.newPage()
   await page.goto(`${base}/`, { waitUntil: "networkidle" })
-  const field = page.getByLabel("Area or city")
-  const allow = page.getByRole("button", { name: "Use my location" })
-  await field.or(allow).waitFor({ timeout: 10000 })
-  if (await allow.isVisible()) await allow.click()
-  await field.waitFor({ timeout: 10000 })
+  await page.getByLabel("Area or city").waitFor({ timeout: 10000 })
   await page.getByText(/Location access is off|Enter an area or city|took too long|can't share a location/).waitFor()
   await context.close()
   console.log("location denied ok")
+}
+
+async function locationPrompt() {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const page = await context.newPage()
+  await page.addInitScript(() => {
+    const geo = navigator.geolocation
+    const original = geo.getCurrentPosition.bind(geo)
+    window.__geoCalls = 0
+    geo.getCurrentPosition = function (...args) {
+      window.__geoCalls += 1
+      return original.apply(geo, args)
+    }
+    const query = navigator.permissions?.query?.bind(navigator.permissions)
+    if (navigator.permissions) {
+      navigator.permissions.query = async (descriptor) => {
+        if (descriptor && descriptor.name === "geolocation") {
+          return { state: "prompt", addEventListener() {}, removeEventListener() {} }
+        }
+        return query ? query(descriptor) : { state: "prompt" }
+      }
+    }
+  })
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded" })
+  await page.waitForFunction(() => window.__geoCalls > 0, null, { timeout: 5000 })
+  await context.close()
+  console.log("location prompt fires without a click")
 }
 
 async function searchFilters() {
@@ -53,6 +76,7 @@ async function searchFilters() {
 try {
   await locationGranted()
   await locationDenied()
+  await locationPrompt()
   await searchFilters()
 } finally {
   await browser.close()

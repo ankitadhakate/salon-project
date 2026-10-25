@@ -20,6 +20,7 @@ import { getSessionUser } from "@/lib/auth"
 import { listActiveCities } from "@/lib/places"
 import { getOwnerSalon, type OwnerSalon } from "@/lib/salons"
 import { SUGGESTED_SERVICES, setupStep, type SetupStep } from "@/lib/suggested-services"
+import type { CustomDraft } from "@/components/service-picks"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
@@ -69,9 +70,21 @@ export default async function PartnerSetupPage({
   }
 
   const cities = step === "salon" ? await listActiveCities() : []
+  const suggestedKeys = new Set(SUGGESTED_SERVICES.map((service) => `${service.category}:${service.name}`))
   const savedPrices = Object.fromEntries(
-    (salon?.services ?? []).map((service) => [`${service.category}:${service.name}`, service.priceInr]),
+    (salon?.services ?? [])
+      .filter((service) => suggestedKeys.has(`${service.category}:${service.name}`))
+      .map((service) => [`${service.category}:${service.name}`, service.priceInr]),
   )
+  const customServices: CustomDraft[] = (salon?.services ?? [])
+    .filter((service) => !suggestedKeys.has(`${service.category}:${service.name}`))
+    .map((service) => ({
+      name: service.name,
+      category: service.category,
+      price: String(service.priceInr),
+      from: service.priceFrom,
+      duration: service.durationMin == null ? "" : String(service.durationMin),
+    }))
   const marked = (name: string) => field === name || undefined
 
   return (
@@ -236,10 +249,15 @@ export default async function PartnerSetupPage({
               Services and prices
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Tick what you offer. Suggested prices — change them to your own. You can add other services later.
+              Tick what you offer, or add a service that is not on the list. Change the prices to your own.
             </p>
           </div>
-          <ServicePicks services={SUGGESTED_SERVICES} savedPrices={savedPrices} invalid={field === "services"} />
+          <ServicePicks
+            services={SUGGESTED_SERVICES}
+            savedPrices={savedPrices}
+            customs={customServices}
+            invalid={field === "services"}
+          />
           <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex gap-2">
               <Link href="/partner/setup?step=contact" className={cn(buttonVariants({ variant: "outline" }), "h-12 px-4 text-base")}>

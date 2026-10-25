@@ -35,6 +35,7 @@ export function PinPicker({
   const [linkMessage, setLinkMessage] = useState("")
   const [linkError, setLinkError] = useState(false)
   const [linkBusy, setLinkBusy] = useState(false)
+  const [hereBusy, setHereBusy] = useState(false)
   const frameRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -125,6 +126,7 @@ export function PinPicker({
         latitude?: number
         longitude?: number
         mapsUrl?: string
+        placeName?: string | null
         error?: string
       }
       if (!response.ok || data.latitude == null || data.longitude == null) {
@@ -135,7 +137,11 @@ export function PinPicker({
       setAcceptedUrl(data.mapsUrl || "")
       if (data.mapsUrl) setLink(data.mapsUrl)
       setLinkError(false)
-      setLinkMessage("Pin dropped. Drag it if the door is a little off.")
+      setLinkMessage(
+        data.placeName
+          ? `Pin dropped at ${data.placeName}. Drag it if the door is a little off.`
+          : "Pin dropped. Drag it if the door is a little off.",
+      )
       movePin(data.latitude, data.longitude)
     } catch {
       setLinkError(true)
@@ -143,6 +149,32 @@ export function PinPicker({
     } finally {
       setLinkBusy(false)
     }
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setLinkError(true)
+      setLinkMessage("This browser can't share a location. Paste a Maps link, or search the address.")
+      return
+    }
+    setHereBusy(true)
+    setLinkError(false)
+    setLinkMessage("Finding your location…")
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setHereBusy(false)
+        setAcceptedUrl("")
+        setLinkError(false)
+        setLinkMessage("Using your current location. Drag the pin to the door.")
+        movePin(position.coords.latitude, position.coords.longitude)
+      },
+      () => {
+        setHereBusy(false)
+        setLinkError(true)
+        setLinkMessage("Location access is off. Paste a Maps link, or search the address.")
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+    )
   }
 
   function searchWrittenAddress() {
@@ -154,7 +186,7 @@ export function PinPicker({
     void search(text)
   }
 
-  const pinState = linkError ? "error" : linkMessage.startsWith("Pin dropped") ? "dropped" : "empty"
+  const pinState = linkError ? "error" : /^(Pin dropped|Using your current location)/.test(linkMessage) ? "dropped" : "empty"
 
   return (
     <div className="grid gap-3">
@@ -179,19 +211,35 @@ export function PinPicker({
           aria-describedby="maps-link-hint maps-link-status"
           className="h-12 w-full rounded-lg border border-input bg-card px-3 text-base"
         />
-        <button
-          type="button"
-          onClick={() => void applyMapsLink()}
-          disabled={linkBusy}
-          className="h-12 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-60"
-        >
-          {linkBusy ? "Opening…" : "Use this link"}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => void applyMapsLink()}
+            disabled={linkBusy || hereBusy}
+            className="h-12 flex-1 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-60"
+          >
+            {linkBusy ? "Opening…" : "Use this link"}
+          </button>
+          <button
+            type="button"
+            onClick={useCurrentLocation}
+            disabled={linkBusy || hereBusy}
+            className="h-12 flex-1 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-60"
+          >
+            {hereBusy ? "Finding you…" : "Use my current location"}
+          </button>
+        </div>
         <p
           id="maps-link-status"
           data-pin-state={pinState}
-          role={linkError ? "alert" : undefined}
-          className={linkError ? "text-sm text-destructive" : "text-sm text-muted-foreground"}
+          role={linkError ? "alert" : linkMessage ? "status" : undefined}
+          className={
+            linkError
+              ? "rounded-lg bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+              : pinState === "dropped"
+                ? "rounded-lg bg-sage/40 px-3 py-2 text-sm font-medium text-foreground"
+                : "text-sm text-muted-foreground"
+          }
         >
           {linkMessage}
         </p>

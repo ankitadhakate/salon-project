@@ -73,7 +73,7 @@ export default async function HomePage({
   const emptyNear = Boolean(near && listed && listed.total === 0)
 
   return (
-    <div>
+    <div className="home-hero">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
@@ -89,7 +89,8 @@ export default async function HomePage({
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/55 to-black/40" aria-hidden />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/25" aria-hidden />
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/75 to-transparent" aria-hidden />
         </div>
         <div className="relative z-10 mx-auto w-full max-w-4xl px-4 py-16 text-center text-white">
           <h1 className="font-heading text-5xl leading-[1.02] font-extrabold tracking-tight text-balance sm:text-6xl">
@@ -99,6 +100,12 @@ export default async function HomePage({
             Haircut, facial, bridal makeup. Prices written down by the salon.
           </p>
           <HeroFinder active={Boolean(near)} ask={ask} placeLabel={discovery.place} defaultPlace={defaultPlace} />
+          <Link
+            href="/partner"
+            className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:bg-primary-hover"
+          >
+            List your salon free
+          </Link>
         </div>
       </section>
 
@@ -131,6 +138,18 @@ export default async function HomePage({
           </ul>
         </section>
       ) : null}
+
+      <section className="mx-auto max-w-6xl px-4 py-8 pb-16">
+        <div className="rounded-3xl bg-blush px-6 py-12 text-center">
+          <h2 className="font-heading text-3xl text-balance sm:text-4xl">List your salon free</h2>
+          <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+            Add your services, your prices, and the door on the map. Customers message you on WhatsApp.
+          </p>
+          <Link href="/partner" className={cn(buttonVariants(), "mt-6 h-12 px-6 text-base")}>
+            List your salon free
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }

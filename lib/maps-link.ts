@@ -1,6 +1,8 @@
 /**
  * Google Maps links pasted by an owner. Parsing is local. Short links are
- * resolved by following redirects one hop at a time. No Google API.
+ * resolved by following redirects one hop at a time, and by reading a small
+ * HTML body when Google answers 200 instead of redirecting. No Google API.
+ * Every hop stays on an allow-listed Google host.
  */
 
 const MAX_URL_LENGTH = 2000
@@ -21,30 +23,23 @@ export const MAPS_LINK_ERRORS = {
   save: "That Google Maps link can't be saved. Paste it again, or clear the field.",
 } as const
 
-const REDIRECT_HOSTS = new Set([
-  "maps.app.goo.gl",
-  "goo.gl",
-  "google.com",
-  "www.google.com",
-  "google.co.in",
-  "www.google.co.in",
-  "maps.google.com",
-  "consent.google.com",
-])
-
 export type MapsLinkResult =
-  | { ok: true; kind: "coords"; latitude: number; longitude: number; mapsUrl: string }
+  | {
+      ok: true
+      kind: "coords"
+      latitude: number
+      longitude: number
+      mapsUrl: string
+      placeName: string | null
+    }
   | { ok: true; kind: "place"; placeQuery: string; mapsUrl: string }
   | { ok: true; kind: "short"; mapsUrl: string }
   | { ok: false; error: string }
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>
 
-type Extracted =
-  | { kind: "coords"; latitude: number; longitude: number }
-  | { kind: "place"; placeQuery: string }
-  | { kind: "none" }
-  | { kind: "error"; error: string }
+type Hit = { kind: "hit"; latitude: number | null; longitude: number | null; placeName: string | null }
+type Extracted = Hit | { kind: "error"; error: string }
 
 function fail(error: string): MapsLinkResult {
   return { ok: false, error }
@@ -92,12 +87,15 @@ function isPasteHost(url: URL) {
   return isMapsPage(url) || hostName(url.hostname) === "consent.google.com"
 }
 
-/** Hosts a redirect is allowed to land on. Country TLDs are accepted as pasted URLs, not as hops. */
+/** Hosts a redirect or an HTML link is allowed to land on. Google only, never an IP. */
 export function isRedirectHost(url: URL) {
   const host = hostName(url.hostname)
-  if (isIpLiteral(host) || !REDIRECT_HOSTS.has(host)) return false
+  if (isIpLiteral(host)) return false
+  if (host === "maps.app.goo.gl") return true
   if (host === "goo.gl") return url.pathname === "/maps" || url.pathname.startsWith("/maps/")
-  if (host === "maps.app.goo.gl" || host === "consent.google.com" || host === "maps.google.com") return true
+  if (host === "consent.google.com") return true
+  if (!isGoogleMapsHost(host)) return false
+  if (host.startsWith("maps.google.")) return true
   return isMapsPath(url)
 }
 
@@ -135,7 +133,7 @@ export function readMapsUrl(formData: FormData) {
   return { ok: true as const, value }
 }
 
-function parsePair(latRaw: string, lngRaw: string): Extracted | null {
+function parsePair(latRaw: string, lngRaw: string): Extracted | { kind: "coords"; latitude: number; longitude: number } | null {
   if (!/^[+-]?\d+(?:\.\d+)?$/.test(latRaw) || !/^[+-]?\d+(?:\.\d+)?$/.test(lngRaw)) return null
   const latitude = Number(latRaw)
   const longitude = Number(lngRaw)
@@ -149,7 +147,7 @@ function parsePair(latRaw: string, lngRaw: string): Extracted | null {
   return { kind: "coords", latitude, longitude }
 }
 
-function pairFromText(value: string): Extracted | null {
+function pairFromText(value: string) {
   const match = value
     .trim()
     .replace(/^loc:/i, "")
@@ -175,46 +173,77 @@ function cleanPlace(value: string) {
   return name
 }
 
+function applyPair(hit: Hit, pair: Extracted | { kind: "coords"; latitude: number; longitude: number } | null) {
+  if (!pair) return null
+  if (pair.kind === "error") return pair
+  if (pair.kind === "coords") {
+    hit.latitude = pair.latitude
+    hit.longitude = pair.longitude
+  }
+  return null
+}
+
+/** Pull coordinates and, when the URL has one, the place name. Coordinates win over a name. */
 function extract(url: URL): Extracted {
   const text = decoded(url)
+  const hit: Hit = { kind: "hit", latitude: null, longitude: null, placeName: null }
+
   const pins = [...text.matchAll(/!3d([+-]?\d+(?:\.\d+)?)!4d([+-]?\d+(?:\.\d+)?)/g)]
   if (pins.length) {
     const last = pins[pins.length - 1]!
-    return parsePair(last[1]!, last[2]!) ?? { kind: "none" }
+    const failed = applyPair(hit, parsePair(last[1]!, last[2]!))
+    if (failed) return failed
   }
 
-  for (const key of ["destination", "query", "q", "ll"] as const) {
-    const value = url.searchParams.get(key)
-    if (!value) continue
-    const pair = pairFromText(value)
-    if (pair) return pair
+  if (hit.latitude == null) {
+    for (const key of ["destination", "query", "q", "ll"] as const) {
+      const value = url.searchParams.get(key)
+      if (!value) continue
+      const failed = applyPair(hit, pairFromText(value))
+      if (failed) return failed
+      if (hit.latitude != null) break
+    }
   }
 
-  const at = text.match(/@([+-]?\d+(?:\.\d+)?),([+-]?\d+(?:\.\d+)?)/)
-  if (at) return parsePair(at[1]!, at[2]!) ?? { kind: "none" }
+  if (hit.latitude == null) {
+    const at = text.match(/@([+-]?\d+(?:\.\d+)?),([+-]?\d+(?:\.\d+)?)/)
+    if (at) {
+      const failed = applyPair(hit, parsePair(at[1]!, at[2]!))
+      if (failed) return failed
+    }
+  }
 
-  const placePath = text.match(/\/maps\/place\/([^/]+)/)
-  if (placePath?.[1]) {
-    const name = cleanPlace(placePath[1])
-    if (name) return { kind: "place", placeQuery: name }
+  const placePath = text.match(/\/maps\/place\/([^/@]+)/)
+  if (placePath?.[1]) hit.placeName = cleanPlace(placePath[1])
+  if (!hit.placeName) {
+    for (const key of ["q", "query", "destination"] as const) {
+      const value = url.searchParams.get(key)
+      if (!value || pairFromText(value)) continue
+      const name = cleanPlace(value)
+      if (name) {
+        hit.placeName = name
+        break
+      }
+    }
   }
-  for (const key of ["q", "query", "destination"] as const) {
-    const value = url.searchParams.get(key)
-    if (!value) continue
-    const name = cleanPlace(value)
-    if (name) return { kind: "place", placeQuery: name }
-  }
-  return { kind: "none" }
+  return hit
 }
 
-function withStoredUrl(raw: string, current: URL, located: Extracted): MapsLinkResult {
+function withStoredUrl(raw: string, current: URL, located: Hit): MapsLinkResult {
   const mapsUrl = sanitizeMapsUrl(raw) ?? sanitizeMapsUrl(current.toString())
   if (!mapsUrl) return fail(MAPS_LINK_ERRORS.notMaps)
-  if (located.kind === "coords") {
-    return { ok: true, kind: "coords", latitude: located.latitude, longitude: located.longitude, mapsUrl }
+  if (located.latitude != null && located.longitude != null) {
+    return {
+      ok: true,
+      kind: "coords",
+      latitude: located.latitude,
+      longitude: located.longitude,
+      mapsUrl,
+      placeName: located.placeName,
+    }
   }
-  if (located.kind === "place") {
-    return { ok: true, kind: "place", placeQuery: located.placeQuery, mapsUrl }
+  if (located.placeName) {
+    return { ok: true, kind: "place", placeQuery: located.placeName, mapsUrl }
   }
   return fail(MAPS_LINK_ERRORS.noPin)
 }
@@ -227,7 +256,7 @@ export function parseMapsUrl(raw: string): MapsLinkResult {
   }
   const located = extract(url)
   if (located.kind === "error") return fail(located.error)
-  if (located.kind === "coords" || located.kind === "place") return withStoredUrl(raw, url, located)
+  if (located.latitude != null || located.placeName) return withStoredUrl(raw, url, located)
   if (isShortHost(url)) {
     const mapsUrl = sanitizeMapsUrl(raw)
     if (!mapsUrl) return fail(MAPS_LINK_ERRORS.notMaps)
@@ -252,16 +281,82 @@ function isAbort(error: unknown) {
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")
 }
 
-async function discardBody(response: Response) {
+function decodeHtmlUrl(value: string) {
+  return value.replace(/&amp;/g, "&").replace(/\\\//g, "/")
+}
+
+function urlsInHtml(html: string) {
+  const found: string[] = []
+  const refresh = html.match(/content\s*=\s*["'][^"']*url\s*=\s*([^"'\s>]+)/i)
+  if (refresh?.[1]) found.push(decodeHtmlUrl(refresh[1]))
+  for (const match of html.matchAll(/https:\/\/[^\s"'<>\\]+/g)) {
+    found.push(decodeHtmlUrl(match[0]))
+  }
+  return found
+}
+
+function locatedFromHtml(html: string): Extracted | { kind: "follow"; url: URL } | null {
+  let follow: URL | null = null
+  for (const raw of urlsInHtml(html)) {
+    const url = readUrl(raw)
+    if (!url || !isRedirectHost(url)) continue
+    if (isShortHost(url)) {
+      follow ??= url
+      continue
+    }
+    const located = extract(url)
+    if (located.kind === "error") return located
+    if (located.latitude != null || located.placeName) return located
+  }
+  const pin = html.match(/!3d([+-]?\d+(?:\.\d+)?)!4d([+-]?\d+(?:\.\d+)?)/)
+  if (pin) {
+    const pair = parsePair(pin[1]!, pin[2]!)
+    if (pair?.kind === "error") return pair
+    if (pair?.kind === "coords") {
+      return { kind: "hit", latitude: pair.latitude, longitude: pair.longitude, placeName: null }
+    }
+  }
+  if (follow) return { kind: "follow", url: follow }
+  return null
+}
+
+async function readCapped(response: Response): Promise<"large" | string> {
   const length = Number(response.headers.get("content-length") ?? "0")
-  await response.body?.cancel().catch(() => undefined)
-  if (Number.isFinite(length) && length > MAX_BODY_BYTES) return "large" as const
-  return "ok" as const
+  if (Number.isFinite(length) && length > MAX_BODY_BYTES) {
+    await response.body?.cancel().catch(() => undefined)
+    return "large"
+  }
+  if (response.status >= 300 && response.status < 400) {
+    await response.body?.cancel().catch(() => undefined)
+    return ""
+  }
+  if (!response.body) return ""
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel().catch(() => undefined)
+      return "large"
+    }
+    chunks.push(value)
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(merged)
 }
 
 /**
  * Follow short-link redirects ourselves. Every hop must be https and on the
- * host allowlist. Bodies are cancelled. Consent pages contribute their continue URL.
+ * Google allowlist. A 200 HTML page is read only up to 64KB, and only links
+ * that stay on that allowlist are used. Consent pages contribute their continue URL.
  */
 export async function resolveMapsLink(
   raw: string,
@@ -295,7 +390,7 @@ export async function resolveMapsLink(
 
     const located = extract(current)
     if (located.kind === "error") return fail(located.error)
-    if (located.kind === "coords" || located.kind === "place") return withStoredUrl(raw, current, located)
+    if (located.latitude != null || located.placeName) return withStoredUrl(raw, current, located)
     if (!isShortHost(current)) return fail(MAPS_LINK_ERRORS.noPin)
     if (followed >= maxRedirects) return fail(MAPS_LINK_ERRORS.tooMany)
     if (Date.now() >= deadline) return fail(MAPS_LINK_ERRORS.timeout)
@@ -307,14 +402,29 @@ export async function resolveMapsLink(
         method: "GET",
         redirect: "manual",
         signal: AbortSignal.timeout(remaining),
-        headers: { Accept: "text/html" },
+        headers: {
+          Accept: "text/html",
+          "User-Agent": "Mozilla/5.0 (compatible; LetsTrimLinkResolver/1.0)",
+        },
       })
     } catch (error) {
       return fail(isAbort(error) ? MAPS_LINK_ERRORS.timeout : MAPS_LINK_ERRORS.shortFailed)
     }
 
-    const size = await discardBody(response)
-    if (size === "large") return fail(MAPS_LINK_ERRORS.tooLarge)
+    const body = await readCapped(response)
+    if (body === "large") return fail(MAPS_LINK_ERRORS.tooLarge)
+
+    if (response.status >= 200 && response.status < 300) {
+      const found = locatedFromHtml(body)
+      if (!found) return fail(MAPS_LINK_ERRORS.shortFailed)
+      if (found.kind === "error") return fail(found.error)
+      if (found.kind === "hit") return withStoredUrl(raw, current, found)
+      followed += 1
+      if (followed > maxRedirects) return fail(MAPS_LINK_ERRORS.tooMany)
+      current = found.url
+      continue
+    }
+
     if (response.status < 300 || response.status >= 400) return fail(MAPS_LINK_ERRORS.shortFailed)
     const location = response.headers.get("location")
     if (!location) return fail(MAPS_LINK_ERRORS.shortFailed)

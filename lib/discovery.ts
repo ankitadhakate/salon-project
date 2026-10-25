@@ -24,21 +24,22 @@ export type SavedPlace = {
 
 export type GeoPermission = "granted" | "prompt" | "denied" | "unknown"
 
-/** What the home page should do before painting a location field. */
+/**
+ * Call geolocation on load unless the Permissions API reports denied.
+ * A missing API (Safari) and a still-open prompt both request a position.
+ * `ask` is the manual "change location" path.
+ */
 export function nextLocationStep(input: {
   ask: boolean
-  hasSaved: boolean
   permission: GeoPermission
-}): "saved" | "request" | "enter" {
+}): "request" | "enter" {
   if (input.ask) return "enter"
-  if (input.hasSaved) return "saved"
   if (input.permission === "denied") return "enter"
   return "request"
 }
 
-/** A prompt that is still 'prompt' after an error means the browser wanted a click. */
-export function locationAfterGeoError(code: number, permission: GeoPermission): "choose" | "enter" {
-  if (code === 1 && permission !== "denied") return "choose"
+/** Deny, error, and timeout all fall through to the area field. */
+export function locationAfterGeoError(): "enter" {
   return "enter"
 }
 

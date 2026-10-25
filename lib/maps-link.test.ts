@@ -19,6 +19,7 @@ test("reads coordinates from @, place pin, query params, and country TLDs", () =
   )
   assert.equal(pin.ok && pin.kind === "coords" && pin.latitude, 18.5362)
   assert.equal(pin.ok && pin.kind === "coords" && pin.longitude, 73.8939)
+  assert.equal(pin.ok && pin.kind === "coords" && pin.placeName, "Saffron Atelier")
 
   const query = parseMapsUrl("https://www.google.com/maps/search/?api=1&query=18.52,73.85")
   assert.equal(query.ok && query.kind === "coords" && query.latitude, 18.52)
@@ -85,7 +86,11 @@ test("accepts short links and stores only allowlisted https Maps URLs", () => {
   assert.equal(sanitizeMapsUrl("https://evil.example/maps"), null)
   assert.equal(
     directionsHref(18.5, 73.8, "Lane", "Pune", "https://www.google.com/maps/@18.5,73.8,15z"),
-    "https://www.google.com/maps/@18.5,73.8,15z",
+    "https://www.google.com/maps/dir/?api=1&destination=18.5,73.8",
+  )
+  assert.equal(
+    directionsHref(null, null, "Lane", "Pune", "https://www.google.com/maps/place/Saffron+Atelier/"),
+    "https://www.google.com/maps/place/Saffron+Atelier/",
   )
   assert.equal(
     directionsHref(18.5, 73.8, "Lane", "Pune", "https://evil.example/phish"),
@@ -120,6 +125,27 @@ test("resolver rejects non-allowlisted hosts and redirects", async () => {
     if (url === "https://goo.gl/maps/loop" || url === "https://maps.app.goo.gl/loop") {
       return new Response(null, { status: 302, headers: { location: "https://maps.app.goo.gl/loop" } })
     }
+    if (url === "https://maps.app.goo.gl/de") {
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://www.google.de/maps/@52.52,13.405,12z" },
+      })
+    }
+    if (url === "https://maps.app.goo.gl/html") {
+      return new Response(
+        '<a href="https://www.google.com/maps/place/Saffron+Atelier/@18.52,73.85,17z/data=!3d18.5362!4d73.8939">open</a>',
+        { status: 200, headers: { "content-type": "text/html" } },
+      )
+    }
+    if (url === "https://maps.app.goo.gl/meta") {
+      return new Response(
+        '<meta http-equiv="refresh" content="0;url=https://www.google.co.in/maps/@18.5,73.8,15z">',
+        { status: 200 },
+      )
+    }
+    if (url === "https://maps.app.goo.gl/body") {
+      return new Response('<a href="https://evil.example/steal">x</a> !3d18.51!4d73.81', { status: 200 })
+    }
     if (url === "https://maps.app.goo.gl/huge") {
       return new Response(null, {
         status: 302,
@@ -144,6 +170,20 @@ test("resolver rejects non-allowlisted hosts and redirects", async () => {
   const ip = await resolveMapsLink("https://127.0.0.1/maps/@18.5,73.8", { fetch: fetchImpl })
   assert.equal(ip.ok, false)
   assert.equal(calls, 0)
+
+  const germany = await resolveMapsLink("https://maps.app.goo.gl/de", { fetch: fetchImpl })
+  assert.equal(germany.ok && germany.kind === "coords" && germany.latitude, 52.52)
+
+  const html = await resolveMapsLink("https://maps.app.goo.gl/html", { fetch: fetchImpl })
+  assert.equal(html.ok && html.kind === "coords" && html.latitude, 18.5362)
+  assert.equal(html.ok && html.kind === "coords" && html.placeName, "Saffron Atelier")
+
+  const meta = await resolveMapsLink("https://maps.app.goo.gl/meta", { fetch: fetchImpl })
+  assert.equal(meta.ok && meta.kind === "coords" && meta.longitude, 73.8)
+
+  const embedded = await resolveMapsLink("https://maps.app.goo.gl/body", { fetch: fetchImpl })
+  assert.equal(embedded.ok && embedded.kind === "coords" && embedded.latitude, 18.51)
+  assert.equal(embedded.ok && embedded.kind === "coords" && embedded.longitude, 73.81)
 
   const followed = await resolveMapsLink("https://maps.app.goo.gl/ok", { fetch: fetchImpl })
   assert.equal(followed.ok && followed.kind === "coords" && followed.latitude, 18.5362)

@@ -120,7 +120,7 @@ export function ContactActions({
         external
         className="inline-flex h-11 items-center justify-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
-        Directions
+        Get directions
       </TrackedLink>
     </div>
   )

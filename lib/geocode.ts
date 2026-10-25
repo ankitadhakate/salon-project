@@ -51,3 +51,55 @@ export async function searchPlaces(query: string) {
     )
   return { results, status: 200 }
 }
+
+type ReverseRow = {
+  display_name?: string
+  address?: {
+    suburb?: string
+    neighbourhood?: string
+    quarter?: string
+    city_district?: string
+    city?: string
+    town?: string
+    village?: string
+    state?: string
+  }
+}
+
+/** Nominatim reverse. Used when no listed salon is close enough to name the area. */
+export async function reversePlaceName(latitude: number, longitude: number) {
+  const endpoint = process.env.GEOCODER_REVERSE_URL || "https://nominatim.openstreetmap.org/reverse"
+  const url = new URL(endpoint)
+  url.searchParams.set("format", "jsonv2")
+  url.searchParams.set("lat", String(latitude))
+  url.searchParams.set("lon", String(longitude))
+  url.searchParams.set("zoom", "14")
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": `${siteName()} salon directory (${appBaseUrl()})`,
+      },
+      signal: AbortSignal.timeout(4000),
+      next: { revalidate: 60 * 60 * 24 },
+    })
+  } catch {
+    return null
+  }
+  if (!response.ok) return null
+  const row = (await response.json()) as ReverseRow
+  const address = row.address
+  const label =
+    address?.suburb ||
+    address?.neighbourhood ||
+    address?.quarter ||
+    address?.city_district ||
+    address?.city ||
+    address?.town ||
+    address?.village ||
+    ""
+  const city = address?.city || address?.town || address?.village || ""
+  const name = label && city && label !== city ? `${label}, ${city}` : label || city
+  return name ? name.slice(0, 80) : null
+}

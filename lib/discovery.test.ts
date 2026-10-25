@@ -106,16 +106,14 @@ test("suggestions group places, salons, and services", () => {
   assert.equal(groups.services[0]?.label, "Haircut")
 })
 
-test("location is requested on load unless it is already denied or saved", () => {
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "granted" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "prompt" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "unknown" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "denied" }), "enter")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: true, permission: "granted" }), "saved")
-  assert.equal(nextLocationStep({ ask: true, hasSaved: true, permission: "granted" }), "enter")
-  assert.equal(locationAfterGeoError(1, "prompt"), "choose")
-  assert.equal(locationAfterGeoError(1, "denied"), "enter")
-  assert.equal(locationAfterGeoError(3, "prompt"), "enter")
+test("location is requested on load unless permission is denied", () => {
+  assert.equal(nextLocationStep({ ask: false, permission: "granted" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "prompt" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "unknown" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "denied" }), "enter")
+  assert.equal(nextLocationStep({ ask: true, permission: "granted" }), "enter")
+  assert.equal(nextLocationStep({ ask: true, permission: "prompt" }), "enter")
+  assert.equal(locationAfterGeoError(), "enter")
 })
 
 test("a huge page, query, radius, and price are clamped", () => {

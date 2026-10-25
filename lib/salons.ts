@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { openNowClock } from "@/lib/format"
 import { clampPriceInr, clampPage } from "@/lib/filters"
 import { boundingBox, clampRadiusKm } from "@/lib/geo"
+import { buildSearchBlob } from "@/lib/search-blob"
 
 const placeInclude = {
   city: { select: { slug: true, name: true, timezone: true, dialCode: true, countryCode: true } },
@@ -310,7 +311,7 @@ export async function refreshSalonSearch(salonId: string) {
     where: { citySlug_slug: { citySlug: salon.citySlug, slug: salon.areaSlug } },
     include: { city: { select: { name: true } } },
   })
-  const searchBlob = [
+  const searchBlob = buildSearchBlob([
     salon.name,
     place?.name ?? salon.areaSlug,
     place?.city.name,
@@ -320,9 +321,7 @@ export async function refreshSalonSearch(salonId: string) {
     salon.description,
     salon.gender,
     ...salon.services.flatMap((service) => [service.name, service.category]),
-  ]
-    .join(" ")
-    .toLowerCase()
+  ])
   const startingPrice = salon.services.length
     ? Math.min(...salon.services.map((service) => service.priceInr))
     : null

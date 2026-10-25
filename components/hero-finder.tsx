@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useId, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, MapPin, Navigation } from "lucide-react"
+import { Loader2, MapPin } from "lucide-react"
 import { OmniSearch } from "@/components/omni-search"
 import {
   PLACE_STORAGE_KEY,
-  locationAfterGeoError,
   nextLocationStep,
   parseSavedPlace,
   serializePlace,
@@ -17,16 +16,36 @@ import {
 import type { SuggestHit } from "@/lib/suggest"
 
 type Center = { lat: number; lng: number; label: string }
-type Mode = "locating" | "choose" | "enter" | "ready"
+type Mode = "locating" | "enter" | "ready"
 
 async function readPermission(): Promise<GeoPermission> {
   if (!navigator.permissions?.query) return "unknown"
   try {
-    const status = await navigator.permissions.query({ name: "geolocation" })
+    const status = await Promise.race([
+      navigator.permissions.query({ name: "geolocation" }),
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 250)),
+    ])
+    if (!status) return "unknown"
     if (status.state === "granted" || status.state === "prompt" || status.state === "denied") return status.state
     return "unknown"
   } catch {
     return "unknown"
+  }
+}
+
+function storePlace(place: SavedPlace) {
+  localStorage.setItem(PLACE_STORAGE_KEY, serializePlace(place))
+  window.dispatchEvent(new Event("letstrim-place"))
+}
+
+async function areaLabel(lat: number, lng: number) {
+  try {
+    const response = await fetch(`/api/area?lat=${lat}&lng=${lng}`)
+    if (!response.ok) return "Near you"
+    const body = (await response.json()) as { label?: string | null }
+    return body.label?.trim().slice(0, 80) || "Near you"
+  } catch {
+    return "Near you"
   }
 }
 
@@ -62,29 +81,28 @@ export function HeroFinder({
       setError("")
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setPending(false)
-          const place: SavedPlace = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            label: "Near you",
-            km: 5,
-          }
-          localStorage.setItem(PLACE_STORAGE_KEY, serializePlace(place))
-          router.push(placeHref(place))
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          void areaLabel(lat, lng).then((label) => {
+            setPending(false)
+            const place: SavedPlace = { lat, lng, label, km: 5 }
+            storePlace(place)
+            router.push(placeHref(place))
+          })
         },
         (failure) => {
           setPending(false)
-          void readPermission().then((permission) => {
-            const next = fromGesture ? "enter" : locationAfterGeoError(failure.code, permission)
-            if (next === "enter") {
-              setError(
-                failure.code === 3
-                  ? "Finding you took too long. Enter an area or city."
-                  : "Location access is off. Enter an area or city.",
-              )
-            }
-            setMode(next)
-          })
+          const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
+          if (saved && !fromGesture) {
+            router.replace(placeHref(saved))
+            return
+          }
+          setError(
+            failure.code === 3
+              ? "Finding you took too long. Enter an area or city."
+              : "Location access is off. Enter an area or city.",
+          )
+          setMode("enter")
         },
         { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
       )
@@ -99,15 +117,15 @@ export function HeroFinder({
     }
     let cancelled = false
     ;(async () => {
-      const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
       const permission = await readPermission()
       if (cancelled) return
-      const step = nextLocationStep({ ask, hasSaved: Boolean(saved), permission })
-      if (step === "saved" && saved) {
-        router.replace(placeHref(saved))
-        return
-      }
+      const step = nextLocationStep({ ask, permission })
       if (step === "enter") {
+        const saved = parseSavedPlace(localStorage.getItem(PLACE_STORAGE_KEY))
+        if (saved && permission === "denied" && !ask) {
+          router.replace(placeHref(saved))
+          return
+        }
         setMode("enter")
         if (permission === "denied") setError("Location access is off. Enter an area or city.")
         return
@@ -159,7 +177,7 @@ export function HeroFinder({
   }, [q, mode])
 
   function remember(place: SavedPlace) {
-    localStorage.setItem(PLACE_STORAGE_KEY, serializePlace(place))
+    storePlace(place)
     router.push(placeHref(place))
   }
 
@@ -190,17 +208,6 @@ export function HeroFinder({
               <Loader2 className="size-4 animate-spin text-sage-ink" aria-hidden />
               Finding salons near you
             </p>
-          ) : null}
-          {mode === "choose" ? (
-            <button
-              type="button"
-              onClick={() => requestPosition(true)}
-              disabled={pending}
-              className="press flex h-14 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-70"
-            >
-              {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Navigation className="size-4 text-sage-ink" aria-hidden />}
-              {pending ? "Finding you…" : "Use my location"}
-            </button>
           ) : null}
           {mode === "enter" ? (
             <div>
@@ -276,6 +283,16 @@ export function HeroFinder({
           <OmniSearch embedded />
         </div>
       </div>
+      {mode === "enter" ? (
+        <button
+          type="button"
+          onClick={() => requestPosition(true)}
+          disabled={pending}
+          className="mt-3 text-sm font-semibold text-white underline decoration-white/70 underline-offset-4 disabled:opacity-70"
+        >
+          {pending ? "Finding you…" : "Use my location"}
+        </button>
+      ) : null}
       {error ? <p className="mt-3 rounded-xl bg-white/95 px-3 py-2 text-sm text-destructive">{error}</p> : null}
     </div>
   )
