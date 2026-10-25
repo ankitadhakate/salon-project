@@ -4,7 +4,7 @@ import { OmniSearch } from "@/components/omni-search"
 import { SalonCard } from "@/components/salon-card"
 import { buttonVariants } from "@/components/ui/button"
 import type { Metadata } from "next"
-import { parseDiscovery, discoveryPath } from "@/lib/discovery"
+import { parseDiscovery, discoveryPath, discoverySort } from "@/lib/discovery"
 import { type SearchParams } from "@/lib/filters"
 import { widenNearHref } from "@/lib/geo"
 import { robotsForListing } from "@/lib/indexing"
@@ -41,7 +41,7 @@ export default async function SearchPage({
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     open: query.open,
-    sort: query.sort || (query.q ? "relevance" : query.near ? "nearest" : ""),
+    sort: discoverySort(query),
     page: query.page,
     pageSize: 12,
     pageMode: "offset",

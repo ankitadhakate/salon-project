@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       latitude: resolved.latitude,
       longitude: resolved.longitude,
       mapsUrl: resolved.mapsUrl,
+      placeName: resolved.placeName,
     })
   }
 
@@ -66,5 +67,6 @@ export async function POST(request: Request) {
     latitude: hit.latitude,
     longitude: hit.longitude,
     mapsUrl: resolved.mapsUrl,
+    placeName: resolved.placeQuery,
   })
 }

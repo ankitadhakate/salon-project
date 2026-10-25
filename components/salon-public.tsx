@@ -12,6 +12,7 @@ import { WhatsAppShare } from "@/components/whatsapp-share"
 import { SERVICE_CATEGORIES, DAYS } from "@/lib/constants"
 import {
   directionsHref,
+  servicePriceLabel,
   formatDay,
   formatDuration,
   formatPhone,
@@ -225,15 +226,26 @@ export function SalonPublicView({
             ) : (
               <p className="text-sm text-muted-foreground">This salon has not dropped a map pin yet.</p>
             )}
-            <TrackedLink
-              salonId={contact.salonId}
-              kind="directions"
-              href={mapUrl}
-              external
-              className={cn(buttonVariants({ variant: "outline" }), "mt-3 h-12 px-4 text-base")}
-            >
-              Directions
-            </TrackedLink>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <TrackedLink
+                salonId={contact.salonId}
+                kind="directions"
+                href={mapUrl}
+                external
+                className={cn(buttonVariants({ variant: "outline" }), "h-12 px-4 text-base")}
+              >
+                Get directions
+              </TrackedLink>
+              <TrackedLink
+                salonId={contact.salonId}
+                kind="directions"
+                href={mapUrl}
+                external
+                className={cn(buttonVariants({ variant: "outline" }), "h-12 px-4 text-base")}
+              >
+                Open in Google Maps
+              </TrackedLink>
+            </div>
           </div>
           {salon.startingPrice != null ? (
             <p className="mt-3 text-lg font-medium">Services from {inr(salon.startingPrice)}</p>
@@ -270,7 +282,7 @@ export function SalonPublicView({
                   id: service.id,
                   name: service.name,
                   meta: formatDuration(service.durationMin),
-                  price: inr(service.priceInr),
+                  price: servicePriceLabel(service.priceInr, service.priceFrom),
                 })),
               }))}
             />

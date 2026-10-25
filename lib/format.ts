@@ -9,6 +9,11 @@ export function inr(amount: number) {
   }).format(amount)
 }
 
+export function servicePriceLabel(amount: number, from = false) {
+  const price = inr(amount)
+  return from ? `from ${price}` : price
+}
+
 export function genderLabel(gender: string) {
   if (gender === "MEN") return "Men"
   if (gender === "WOMEN") return "Women"
@@ -30,7 +35,8 @@ export function statusLabel(status: string) {
   }
 }
 
-export function formatDuration(minutes: number) {
+export function formatDuration(minutes: number | null | undefined) {
+  if (minutes == null) return ""
   if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
@@ -203,7 +209,7 @@ export function mapsHref(address: string, place = "") {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
-/** Google Maps navigation. A stored Maps link wins. Otherwise coordinates, which need no API key. */
+/** Google Maps navigation. Coordinates need no API key and win over a stored share link. */
 export function directionsHref(
   latitude: number | null | undefined,
   longitude: number | null | undefined,
@@ -211,10 +217,15 @@ export function directionsHref(
   place = "",
   mapsUrl?: string | null,
 ) {
-  const stored = sanitizeMapsUrl(mapsUrl)
-  if (stored) return stored
-  if (latitude != null && longitude != null) {
+  if (
+    latitude != null &&
+    longitude != null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+  ) {
     return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
   }
+  const stored = sanitizeMapsUrl(mapsUrl)
+  if (stored) return stored
   return mapsHref(address, place)
 }

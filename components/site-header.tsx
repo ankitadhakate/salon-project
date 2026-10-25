@@ -1,44 +1,26 @@
 import Link from "next/link"
+import { AreaPill } from "@/components/area-pill"
+import { HeaderAuth } from "@/components/header-auth"
 import { ScrollHeader } from "@/components/scroll-header"
 import { siteName } from "@/lib/site"
-import { cn } from "@/lib/utils"
 
-type NavUser = { name: string; role: string } | null
-
-export async function SiteHeader({ user }: { user: NavUser }) {
+export function SiteHeader() {
   const name = siteName()
   return (
     <header className="site-header sticky top-0 z-40 border-b border-border bg-white">
       <ScrollHeader />
-      <div className="header-row mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
-        <Link href="/" className="inline-flex h-11 shrink-0 items-center font-heading text-2xl leading-none tracking-tight">
+      <div className="header-row mx-auto grid h-14 w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-4">
+        <div className="min-w-0">
+          <AreaPill />
+        </div>
+        <Link
+          href="/"
+          className="wordmark max-w-full truncate px-2 text-center font-heading text-lg leading-none font-bold tracking-tight"
+        >
           {name}
         </Link>
-        <div className="ml-auto flex items-center gap-3 sm:gap-5">
-          <Link href="/partner" className="text-sm font-semibold whitespace-nowrap hover:text-sage-ink">
-            List your salon free
-          </Link>
-          {user?.role === "ADMIN" ? (
-            <Link href="/admin" className="text-sm font-semibold whitespace-nowrap hover:text-sage-ink">
-              Admin
-            </Link>
-          ) : null}
-          {user ? (
-            <form action="/auth/logout" method="post">
-              <button type="submit" className="text-sm font-semibold text-muted-foreground hover:text-foreground">
-                Log out
-              </button>
-            </form>
-          ) : (
-            <Link
-              href="/partner/login"
-              className={cn(
-                "inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold whitespace-nowrap text-primary-foreground hover:bg-primary-hover",
-              )}
-            >
-              Login
-            </Link>
-          )}
+        <div className="flex min-w-0 items-center justify-end">
+          <HeaderAuth />
         </div>
       </div>
     </header>

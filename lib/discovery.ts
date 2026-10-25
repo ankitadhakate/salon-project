@@ -24,22 +24,48 @@ export type SavedPlace = {
 
 export type GeoPermission = "granted" | "prompt" | "denied" | "unknown"
 
-/** What the home page should do before painting a location field. */
+/**
+ * Call geolocation on load unless the Permissions API reports denied.
+ * A missing API (Safari) and a still-open prompt both request a position.
+ * `ask` is the manual "change location" path.
+ */
 export function nextLocationStep(input: {
   ask: boolean
-  hasSaved: boolean
   permission: GeoPermission
-}): "saved" | "request" | "enter" {
+}): "request" | "enter" {
   if (input.ask) return "enter"
-  if (input.hasSaved) return "saved"
   if (input.permission === "denied") return "enter"
   return "request"
 }
 
-/** A prompt that is still 'prompt' after an error means the browser wanted a click. */
-export function locationAfterGeoError(code: number, permission: GeoPermission): "choose" | "enter" {
-  if (code === 1 && permission !== "denied") return "choose"
+/** Deny, error, and timeout all fall through to the area field. */
+export function locationAfterGeoError(): "enter" {
   return "enter"
+}
+
+export type HeroChrome = "search" | "detecting" | "field"
+
+/**
+ * A granted fix or a saved place: the hero is the search bar only.
+ * A request still in flight, with nothing saved: the search bar plus a hint.
+ * Deny, error, timeout, a missing geolocation API, or Change location: the area field.
+ */
+export function heroLocationChrome(input: {
+  known: boolean
+  ask: boolean
+  status: "granted" | "detecting" | "denied" | "failed"
+}): HeroChrome {
+  if (input.ask) return "field"
+  if (input.known || input.status === "granted") return "search"
+  if (input.status === "denied" || input.status === "failed") return "field"
+  return "detecting"
+}
+
+/** A known place sorts by distance unless the visitor picked another sort. */
+export function discoverySort(query: Pick<DiscoveryQuery, "sort" | "q" | "near">): SortKey {
+  if (query.sort) return query.sort
+  if (query.near) return "nearest"
+  return query.q ? "relevance" : ""
 }
 
 export function defaultCity<T extends { slug: string; name: string }>(cities: T[]): T | null {

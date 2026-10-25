@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { getSessionUser, hashPassword } from "@/lib/auth"
-import { EARLY_PARTNER_PROGRAM, MAX_PHOTOS } from "@/lib/constants"
+import { EARLY_PARTNER_PROGRAM, MAX_PHOTOS, MAX_SERVICES } from "@/lib/constants"
 import { prisma } from "@/lib/db"
 import {
   defaultHours,
@@ -159,6 +159,7 @@ export async function addService(formData: FormData) {
   const parsed = parseService(formData)
   if (!parsed.ok) dashRedirect({ error: parsed.error })
   const count = await prisma.service.count({ where: { salonId: salon.id } })
+  if (count >= MAX_SERVICES) dashRedirect({ error: `List up to ${MAX_SERVICES} services.` })
   await prisma.service.create({
     data: { salonId: salon.id, ...parsed.data, sortOrder: count },
   })

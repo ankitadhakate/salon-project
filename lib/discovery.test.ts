@@ -3,6 +3,8 @@ import test from "node:test"
 import {
   clearDiscoveryFilters,
   defaultCity,
+  discoverySort,
+  heroLocationChrome,
   locationAfterGeoError,
   nextLocationStep,
   discoveryToQuery,
@@ -106,16 +108,31 @@ test("suggestions group places, salons, and services", () => {
   assert.equal(groups.services[0]?.label, "Haircut")
 })
 
-test("location is requested on load unless it is already denied or saved", () => {
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "granted" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "prompt" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "unknown" }), "request")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: false, permission: "denied" }), "enter")
-  assert.equal(nextLocationStep({ ask: false, hasSaved: true, permission: "granted" }), "saved")
-  assert.equal(nextLocationStep({ ask: true, hasSaved: true, permission: "granted" }), "enter")
-  assert.equal(locationAfterGeoError(1, "prompt"), "choose")
-  assert.equal(locationAfterGeoError(1, "denied"), "enter")
-  assert.equal(locationAfterGeoError(3, "prompt"), "enter")
+test("location is requested on load unless permission is denied", () => {
+  assert.equal(nextLocationStep({ ask: false, permission: "granted" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "prompt" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "unknown" }), "request")
+  assert.equal(nextLocationStep({ ask: false, permission: "denied" }), "enter")
+  assert.equal(nextLocationStep({ ask: true, permission: "granted" }), "enter")
+  assert.equal(nextLocationStep({ ask: true, permission: "prompt" }), "enter")
+  assert.equal(locationAfterGeoError(), "enter")
+})
+
+test("granted location shows search only, and denied shows the location field", () => {
+  assert.equal(heroLocationChrome({ known: true, ask: false, status: "granted" }), "search")
+  assert.equal(heroLocationChrome({ known: true, ask: false, status: "detecting" }), "search")
+  assert.equal(heroLocationChrome({ known: false, ask: false, status: "detecting" }), "detecting")
+  assert.equal(heroLocationChrome({ known: false, ask: false, status: "denied" }), "field")
+  assert.equal(heroLocationChrome({ known: false, ask: false, status: "failed" }), "field")
+  assert.equal(heroLocationChrome({ known: true, ask: true, status: "granted" }), "field")
+})
+
+test("a known place sorts search results by distance", () => {
+  const near = parseDiscovery({ q: "haircut", lat: "18.52000", lng: "73.85000", km: "5" })
+  assert.equal(discoverySort(near), "nearest")
+  assert.equal(discoverySort(parseDiscovery({ q: "haircut" })), "relevance")
+  assert.equal(discoverySort({ ...near, sort: "price-asc" }), "price-asc")
+  assert.equal(discoverySort(parseDiscovery({ lat: "18.52000", lng: "73.85000" })), "nearest")
 })
 
 test("a huge page, query, radius, and price are clamped", () => {

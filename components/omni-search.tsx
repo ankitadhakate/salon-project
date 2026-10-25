@@ -10,10 +10,12 @@ export function OmniSearch({
   compact = false,
   initial = "",
   embedded = false,
+  status = "",
 }: {
   compact?: boolean
   initial?: string
   embedded?: boolean
+  status?: string
 }) {
   const router = useRouter()
   const listId = useId()
@@ -97,11 +99,21 @@ export function OmniSearch({
 
   return (
     <div ref={box} className="relative min-w-0">
-      <form onSubmit={onSubmit} className="flex min-w-0 items-center gap-2" role="search">
+      <form
+        onSubmit={onSubmit}
+        className={embedded ? "flex w-full flex-col gap-3" : "flex min-w-0 items-center gap-2"}
+        role="search"
+      >
         <label className="sr-only" htmlFor={`${listId}-q`}>
           Search salons, services, and areas
         </label>
-        <div className="relative min-w-0 flex-1">
+        <div
+          className={
+            embedded
+              ? "relative w-full rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)]"
+              : "relative min-w-0 flex-1"
+          }
+        >
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
             id={`${listId}-q`}
@@ -124,9 +136,18 @@ export function OmniSearch({
             }`}
           />
         </div>
+        {embedded && status ? (
+          <p className="text-center text-sm text-white/80" role="status">
+            {status}
+          </p>
+        ) : null}
         <button
           type="submit"
-          className={`press shrink-0 rounded-full bg-primary font-semibold text-primary-foreground ${compact ? "h-10 px-3 text-sm" : "h-14 px-5"}`}
+          className={
+            embedded
+              ? "press mx-auto h-12 w-full rounded-full bg-primary px-8 text-base font-semibold text-primary-foreground sm:w-auto"
+              : `press shrink-0 rounded-full bg-primary font-semibold text-primary-foreground ${compact ? "h-10 px-3 text-sm" : "h-14 px-5"}`
+          }
         >
           Search
         </button>

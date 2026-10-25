@@ -3,7 +3,6 @@ import { Plus_Jakarta_Sans } from "next/font/google"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
 import { allowIndexing } from "@/lib/indexing"
-import { getSessionUser } from "@/lib/auth"
 import { siteName } from "@/lib/site"
 import { appBaseUrl } from "@/lib/urls"
 import "./globals.css"
@@ -43,8 +42,7 @@ export const viewport: Viewport = {
 
 export const dynamic = "force-dynamic"
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getSessionUser()
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
@@ -54,7 +52,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         >
           Skip to content
         </a>
-        <SiteHeader user={user ? { name: user.name, role: user.role } : null} />
+        <SiteHeader />
         <main id="main" className="flex-1">
           {children}
         </main>

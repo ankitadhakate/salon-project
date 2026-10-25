@@ -32,6 +32,8 @@ test("owner, auth, and session responses are private", () => {
     "/auth/logout",
     "/api/geocode",
     "/api/salon-stats",
+    "/api/session",
+    "/api/area",
   ]) {
     assert.equal(cacheControlFor({ ...anon, pathname }), PRIVATE_NO_STORE)
   }

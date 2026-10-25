@@ -16,7 +16,7 @@ import { PinPicker } from "@/components/pin-picker"
 import { DAYS, SERVICE_CATEGORIES } from "@/lib/constants"
 import type { SessionUser } from "@/lib/auth"
 import { siteName } from "@/lib/site"
-import { formatDuration, inr, statusLabel } from "@/lib/format"
+import { formatDuration, servicePriceLabel, statusLabel } from "@/lib/format"
 import type { OwnerSalon } from "@/lib/salons"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -253,7 +253,7 @@ export function ListingEditor({
 
           <Section
             title="Services and prices"
-            hint="Customers compare these side by side. Prices are in rupees, durations in minutes."
+            hint="Keep the usual services, and add any others you offer. Price is required. “From” and duration are optional."
           >
             {salon.services.length === 0 ? (
               <p className="mb-4 text-sm text-muted-foreground">
@@ -308,17 +308,28 @@ export function ListingEditor({
                             name="durationMin"
                             inputMode="numeric"
                             pattern="[0-9]*"
-                            maxLength={4}
+                            maxLength={3}
                             enterKeyHint="done"
-                            defaultValue={service.durationMin}
+                            placeholder="Optional"
+                            defaultValue={service.durationMin ?? ""}
                             className="h-11 px-3 text-base md:text-base"
                           />
                         </div>
                       </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="priceFrom"
+                          defaultChecked={service.priceFrom}
+                          className="size-5 accent-primary"
+                        />
+                        Price is “from”
+                      </label>
                       <div className="flex flex-wrap items-center gap-2">
                         <SubmitButton className="h-11 px-3">Save</SubmitButton>
                         <span className="text-sm text-muted-foreground">
-                          {inr(service.priceInr)} · {formatDuration(service.durationMin)}
+                          {servicePriceLabel(service.priceInr, service.priceFrom)}
+                          {service.durationMin ? ` · ${formatDuration(service.durationMin)}` : ""}
                         </span>
                       </div>
                     </form>
@@ -332,12 +343,12 @@ export function ListingEditor({
                 ))}
               </ul>
             )}
-            <form action={addService} className="grid gap-3 rounded-xl bg-secondary/60 p-3">
-              <p className="text-sm font-medium">Add a service</p>
+            <form action={addService} className="grid gap-3 rounded-xl bg-secondary/60 p-3" data-custom-services>
+              <p className="text-sm font-medium">Add another service</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-service">Service</Label>
-                  <Input id="new-service" name="name" placeholder="Haircut" className="h-11 px-3 text-base md:text-base" />
+                  <Input id="new-service" name="name" maxLength={80} placeholder="Keratin treatment" className="h-11 px-3 text-base md:text-base" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-category">Category</Label>
@@ -353,10 +364,14 @@ export function ListingEditor({
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="new-duration">Duration (minutes)</Label>
-                  <Input id="new-duration" name="durationMin" inputMode="numeric" pattern="[0-9]*" maxLength={4} enterKeyHint="done" placeholder="45" className="h-12 px-3 text-base md:text-base" />
+                  <Input id="new-duration" name="durationMin" inputMode="numeric" pattern="[0-9]*" maxLength={3} enterKeyHint="done" placeholder="Optional" className="h-12 px-3 text-base md:text-base" />
                 </div>
               </div>
-              <SubmitButton pendingLabel="Adding…">Add service</SubmitButton>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="priceFrom" className="size-5 accent-primary" />
+                Price is “from”
+              </label>
+              <SubmitButton pendingLabel="Adding…">Add another service</SubmitButton>
             </form>
           </Section>
 

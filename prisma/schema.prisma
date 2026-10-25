@@ -151,7 +151,10 @@ model Service {
   name        String
   category    String
   priceInr    Int
-  durationMin Int
+  // True when the owner lists the price as a starting price ("from ₹500").
+  priceFrom   Boolean  @default(false)
+  // Null when the owner did not set a duration.
+  durationMin Int?
   sortOrder   Int      @default(0)
   updatedAt   DateTime @updatedAt
 

@@ -25,4 +25,6 @@ export const SALON_STATUSES = ["DRAFT", "PENDING", "LIVE", "HIDDEN"] as const
 export const GENDERS = ["MEN", "WOMEN", "UNISEX"] as const
 
 export const MAX_PHOTOS = 8
+export const MAX_SERVICES = 40
+export const MAX_SERVICE_NAME = 80
 export const EARLY_PARTNER_PROGRAM = true
