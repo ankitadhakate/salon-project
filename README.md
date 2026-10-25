@@ -112,8 +112,8 @@ See `.env.example`. Production rejects the development secret, the development a
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | Postgres connection string the app uses at runtime. |
-| `DIRECT_URL` | Direct Postgres URL for Prisma Migrate. Same value as `DATABASE_URL` when there is no pooler. |
+| `DATABASE_URL` | Postgres connection the app uses at runtime. On Neon this is the pooled URL with `sslmode=require`. |
+| `DIRECT_URL` | Non-pooled URL for Prisma Migrate (`directUrl`). On Neon this is the direct host, also `sslmode=require`. Same value as `DATABASE_URL` when there is no pooler. |
 | `AUTH_SECRET` | Random string. 16+ characters in development, 32+ in production. Signs the session cookie. |
 | `NEXT_PUBLIC_APP_URL` | Public origin. Cookie is Secure when this is https. |
 | `SITE_NAME` | Brand in the header, titles, and email. Leave unset to use the built-in default. |
@@ -128,7 +128,7 @@ See `.env.example`. Production rejects the development secret, the development a
 
 ## Images
 
-`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloud Storage, set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The client sets request and response checksums to `WHEN_REQUIRED`, which that XML API accepts. The same settings work for R2 with its own endpoint and public URL.
+`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloud Storage, set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The client sets request and response checksums to `WHEN_REQUIRED`, which that XML API accepts. Each uploaded object is stored with a one-year immutable `Cache-Control`. The same settings work for R2 with its own endpoint and public URL.
 
 Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 

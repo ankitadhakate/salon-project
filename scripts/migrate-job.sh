@@ -10,6 +10,12 @@ if [ -z "${DATABASE_URL:-}" ]; then
 fi
 
 if [ -z "${DIRECT_URL:-}" ]; then
+  case "${DATABASE_URL}" in
+    *-pooler*|*\pgbouncer=true*)
+      echo "Set DIRECT_URL to the non-pooled Neon connection. Migrations cannot use the pooled DATABASE_URL." >&2
+      exit 1
+      ;;
+  esac
   export DIRECT_URL="$DATABASE_URL"
   echo "DIRECT_URL was unset. Migrations will use DATABASE_URL."
 fi

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto"
+import { IMMUTABLE_CACHE } from "./cache-control"
 import { mkdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
@@ -126,6 +127,7 @@ class S3ImageStorage implements ImageStorage {
         Key: key,
         Body: buffer,
         ContentType: "image/webp",
+        CacheControl: IMMUTABLE_CACHE,
       }),
     )
     // S3_PUBLIC_URL is the public base, including the bucket for path-style hosts

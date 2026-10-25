@@ -8,7 +8,7 @@ The image command is `npm start`. It does not migrate and it does not seed. Run 
 
 ## Host
 
-The launch host is **Cloud Run**, **Cloud SQL**, and **Cloud Storage**, in `asia-south1`. Follow [Google Cloud](#google-cloud-cloud-run-cloud-sql-cloud-storage). The image is one stage. It is not a Next.js standalone build: the web service and the Cloud Run Job share it, and the job needs the Prisma CLI, `tsx`, and the seed.
+The launch host is **Cloud Run** in `asia-south1`, behind **Firebase Hosting** rewrites, with **Neon** Postgres and **Cloud Storage** for photos. Follow [Google Cloud](#google-cloud-cloud-run-neon-cloud-storage). The image is one stage. It is not a Next.js standalone build: the web service and the Cloud Run Job share it, and the job needs the Prisma CLI, `tsx`, and the seed.
 
 Render, below, is the single-container alternative. One instance runs the migrate script and then the app.
 
@@ -55,8 +55,8 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 
 | Name | Value |
 | --- | --- |
-| `DATABASE_URL` | Internal Postgres URL from step 2. The app uses this at runtime. |
-| `DIRECT_URL` | Same value as `DATABASE_URL` on Render (no pooler). Prisma Migrate uses this. If you add a pooler later, keep this as the direct URL. |
+| `DATABASE_URL` | Pooled Neon URL with `sslmode=require`. The app uses this at runtime. On Render, the internal Postgres URL (no pooler). |
+| `DIRECT_URL` | Neon direct URL with `sslmode=require`, no `-pooler` host. Prisma Migrate uses this (`directUrl` in the schema). On Render, the same value as `DATABASE_URL`. |
 | `AUTH_SECRET` | Unique random string, at least 32 characters |
 | `NEXT_PUBLIC_APP_URL` | `https://notsooboring.com` |
 | `SITE_NAME` | Leave unset to use the built-in name, or set the public brand |
@@ -82,9 +82,9 @@ Optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` for ma
 
 Photo uploads send S3 checksums only when the operation requires them (`WHEN_REQUIRED`). The Cloud Storage XML API and Cloudflare R2 both reject the AWS SDK default. `scripts/pg-dump.sh` sets the same checksum mode for `aws s3 cp`.
 
-## Google Cloud (Cloud Run, Cloud SQL, Cloud Storage)
+## Google Cloud (Cloud Run, Neon, Cloud Storage)
 
-This is the launch host. Nothing here creates a project or deploys the app. Region `asia-south1`. Cloud Run service id `web`. Keep `ALLOW_INDEXING` false.
+This is the launch host. Nothing here creates a project or deploys the app. Cloud Run region `asia-south1`. Service id `saj-web`. Firebase Hosting rewrites every path to that service. Keep `ALLOW_INDEXING` false.
 
 ### Photos (Cloud Storage XML API)
 
@@ -111,37 +111,45 @@ Create a Cloud Run Job from the same image. Container command:
 npm run migrate:deploy
 ```
 
-Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. It applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. If `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
+Run the job after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=s3`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD` as the web service. It applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. Set `DIRECT_URL` on the job. If `DATABASE_URL` is the Neon pooler, the script refuses to copy it. When there is no pooler and `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
 
-Attach the Cloud SQL instance to both the service and the job.
+### Neon connection strings
 
-### Cloud SQL connection strings
+Create a Neon Postgres database. Prisma reads `url` (`DATABASE_URL`) for the app and `directUrl` (`DIRECT_URL`) for migrations. Encode the password. Both URLs need `sslmode=require`.
 
-Postgres 16, same region as Cloud Run. When there is no pooler, set `DATABASE_URL` and `DIRECT_URL` to the same socket URL. Encode the password.
-
-```
-postgresql://USER:PASSWORD@localhost/DBNAME?host=/cloudsql/PROJECT:REGION:INSTANCE
-```
-
-`REGION` is `asia-south1` for this setup. The app URL can add a pool limit so one instance does not open too many connections:
+Pooled, used by Cloud Run at runtime:
 
 ```
-postgresql://USER:PASSWORD@localhost/DBNAME?host=/cloudsql/PROJECT:REGION:INSTANCE&connection_limit=5
+postgresql://USER:PASSWORD@ep-example-pooler.REGION.aws.neon.tech/neondb?sslmode=require
 ```
 
-If `DATABASE_URL` goes through a pooler, `DIRECT_URL` stays the direct socket URL above. Prisma Migrate uses `DIRECT_URL`. The running app uses `DATABASE_URL`.
+Direct, used by the migrate job:
+
+```
+postgresql://USER:PASSWORD@ep-example.REGION.aws.neon.tech/neondb?sslmode=require
+```
+
+The pooled host contains `-pooler`. The direct host does not. Do not point `DIRECT_URL` at the pooler. Neon keeps its own point-in-time backups. Also take a logical dump. See [Backups](#backups).
 
 ### Firebase Hosting
 
-`firebase.json` rewrites every path to Cloud Run service `web` in `asia-south1`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
+`firebase.json` rewrites `**` to Cloud Run service `saj-web` in `asia-south1`. `.firebaserc` has the placeholder project id `YOUR_FIREBASE_PROJECT_ID`. The Cloud Run service allows unauthenticated invocations so Hosting can reach it. Point notsooboring.com at Firebase Hosting after the service is up.
 
-`/_next/static` is cached for one year and marked immutable by the app (`next.config.ts`) and by the matching header in `firebase.json`. HTML stays dynamic. Do not add a Hosting cache rule for `**`.
+Hosting forwards only the `__session` cookie to Cloud Run, and that cookie is part of the CDN cache key. The app stores the login session in `__session`. Other cookies are stripped, so the visitor cookie used for listing stats does not arrive and a repeat view from the same browser can be counted again.
+
+Add notsooboring.com in Firebase Hosting and use the DNS records Hosting shows. The DNS steps further down are only for the Render alternative.
+
+### Cache
+
+Public pages (home, city, area, service, and a live salon) send `Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400` when the request has no `__session` cookie and is not `?preview=1`. Authenticated and owner routes (`/admin`, `/partner`, `/dashboard`, `/login`, `/signup`, `/auth`, `/api`), any request that carries `__session`, and preview links send `private, no-store`.
+
+`/_next/static`, `/uploads`, and `/demo` send a one-year immutable cache, with `s-maxage` and `stale-while-revalidate`, from `next.config.ts` and from `firebase.json`. Photos uploaded to Cloud Storage are stored with the same `Cache-Control`. Do not add a Hosting cache rule for `**`. That would override these headers for HTML.
 
 ### Checksums
 
 `lib/storage.ts` sets `requestChecksumCalculation` and `responseChecksumValidation` to `WHEN_REQUIRED` on the S3 client used for uploads and deletes. That is what the Cloud Storage XML API accepts.
 
-## 4. DNS for notsooboring.com
+## 4. DNS for the Render alternative
 
 Add the domain on the Render service first (Settings → Custom Domains). Add the apex `notsooboring.com`. Render also adds `www.notsooboring.com` and redirects `www` to the apex, which matches `NEXT_PUBLIC_APP_URL`. Hobby includes those two domains.
 
@@ -188,7 +196,7 @@ When the brand domain is ready, add it the same way, set `NEXT_PUBLIC_APP_URL` t
 
 ## Backups
 
-Cloud SQL keeps its own backups. On the Render alternative, use the paid Postgres plan so that host keeps its own backups too. Also take a logical dump you control:
+Neon keeps point-in-time backups. On the Render alternative, use the paid Postgres plan so that host keeps its own backups too. Also take a logical dump you control:
 
 ```sh
 DATABASE_URL="postgresql://…" sh scripts/pg-dump.sh
