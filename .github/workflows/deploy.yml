@@ -1,0 +1,227 @@
+name: Deploy
+
+# Production only. workflow_dispatch from any other ref fails the run.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+# Not secrets. Repository Actions variables override these defaults.
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'saj-prod-512711' }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'asia-south1' }}
+  GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY || 'saj' }}
+  WIF_PROVIDER: ${{ vars.WIF_PROVIDER || 'projects/65255661358/locations/global/workloadIdentityPools/github/providers/salon-project' }}
+  DEPLOY_SA: ${{ vars.DEPLOY_SA || 'saj-deployer@saj-prod-512711.iam.gserviceaccount.com' }}
+  FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT || 'saj-prod-512711' }}
+  CLOUD_RUN_SERVICE: saj-web
+  CLOUD_RUN_JOB: saj-migrate
+  FIREBASE_TOOLS_VERSION: 15.34.1
+  PUBLIC_ORIGIN: https://letstrim.com
+  SMOKE_RUN_URL: https://saj-web-osvfthn27a-el.a.run.app/
+  GOOGLE_CLOUD_QUOTA_PROJECT: ${{ vars.GCP_PROJECT_ID || 'saj-prod-512711' }}
+  CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
+
+jobs:
+  refuse-non-main:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a ref other than main
+        run: |
+          echo "Production deploy only runs on refs/heads/main (this run is ${GITHUB_REF})." >&2
+          exit 1
+
+  check:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && needs.check.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://letstrim.com
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Image coordinates
+        id: image
+        run: |
+          short="${GITHUB_SHA::7}"
+          image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/web:${short}"
+          cache="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/web-cache:latest"
+          echo "short=${short}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "cache=${cache}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "CACHE_IMAGE=${cache}" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP"
+          printf 'SHORT_SHA=%s\nIMAGE=%s\n' "$short" "$image" > "$RUNNER_TEMP/deploy-result.env"
+          echo "Image: ${image}"
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          token_format: access_token
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Record the revision serving now
+        run: |
+          serving="$(gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --format='value(status.traffic[0].revisionName)')"
+          echo "Serving revision before this deploy: ${serving}"
+          printf 'PREVIOUS_REVISION=%s\n' "$serving" >> "$RUNNER_TEMP/deploy-result.env"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          tags: ${{ steps.image.outputs.image }}
+          # Registry cache stays inside the permissions of this workflow.
+          # GitHub Actions cache would need actions: write.
+          cache-from: type=registry,ref=${{ steps.image.outputs.cache }},ignore-error=true
+          cache-to: type=registry,ref=${{ steps.image.outputs.cache }},mode=max
+          build-args: |
+            NEXT_PUBLIC_APP_URL=https://letstrim.com
+
+      - name: Run database migrations
+        run: |
+          # Image only. Do not pass env vars, secrets, or ALLOW_INDEXING.
+          # The job already runs: sh scripts/migrate-job.sh
+          gcloud run jobs update "$CLOUD_RUN_JOB" \
+            --image "$IMAGE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --quiet
+          gcloud run jobs execute "$CLOUD_RUN_JOB" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --wait \
+            --quiet
+
+      - name: Deploy Cloud Run service
+        run: |
+          # Image only. The service already has its env vars, secrets, and
+          # runtime service account. Never pass those, and never set ALLOW_INDEXING.
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --image "$IMAGE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --quiet
+          revision="$(gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --format='value(status.latestCreatedRevisionName)')"
+          echo "Deployed revision: ${revision}"
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID" \
+            --format='yaml(status.traffic)'
+          printf 'REVISION=%s\n' "$revision" >> "$RUNNER_TEMP/deploy-result.env"
+
+      - name: Deploy Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          npx --yes "firebase-tools@${FIREBASE_TOOLS_VERSION}" deploy \
+            --only hosting \
+            --project "$FIREBASE_PROJECT" \
+            --non-interactive
+
+      - name: Smoke test
+        run: |
+          smoke_one() {
+            url="$1"
+            attempt=1
+            while [ "$attempt" -le 5 ]; do
+              headers="$(mktemp)"
+              code="$(curl -sS --max-time 30 -D "$headers" -o /dev/null -w '%{http_code}' "$url" || echo 000)"
+              robots="$(grep -i '^x-robots-tag:' "$headers" | tr -d '\r' || true)"
+              rm -f "$headers"
+              echo "GET ${url} attempt ${attempt} -> ${code} ${robots}"
+              if [ "$code" = "200" ] && printf '%s\n' "$robots" | grep -qi 'noindex'; then
+                return 0
+              fi
+              attempt=$((attempt + 1))
+              sleep 5
+            done
+            echo "Smoke test failed for ${url}: expected HTTP 200 and an x-robots-tag containing noindex." >&2
+            return 1
+          }
+
+          status="passed"
+          smoke_one "${PUBLIC_ORIGIN}/" || status="failed"
+          smoke_one "${SMOKE_RUN_URL}" || status="failed"
+          printf 'SMOKE_RESULT=%s\n' "$status" >> "$RUNNER_TEMP/deploy-result.env"
+          if [ "$status" != "passed" ]; then
+            exit 1
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/deploy-result.env" ]; then
+            # shellcheck disable=SC1091
+            . "$RUNNER_TEMP/deploy-result.env"
+          fi
+          image="${IMAGE:-unset}"
+          revision="${REVISION:-not deployed}"
+          previous="${PREVIOUS_REVISION:-unknown}"
+          smoke="${SMOKE_RESULT:-not run}"
+          {
+            echo "## Production deploy"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Image | \`${image}\` |"
+            echo "| Revision | \`${revision}\` |"
+            echo "| Previous revision | \`${previous}\` |"
+            echo "| Smoke test | ${smoke} |"
+          } >> "$GITHUB_STEP_SUMMARY"

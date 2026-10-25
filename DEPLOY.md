@@ -1,6 +1,6 @@
 # Deploy
 
-This is the launch setup for [letstrim.com](https://letstrim.com). Nothing in this file creates an account or deploys the app. You run the steps.
+This is the launch setup for [letstrim.com](https://letstrim.com). Pushes to `main` deploy production from GitHub Actions. This file does not create accounts or apply changes by itself.
 
 Production is Google Cloud and Firebase only:
 
@@ -14,6 +14,89 @@ Production is Google Cloud and Firebase only:
 The app listens on `PORT`. Cloud Run sets `PORT`, and `npm start` reads it (`next start -p ${PORT:-3847}`). Set `NEXT_PUBLIC_APP_URL` to `https://letstrim.com`. The app reads the origin from that variable and does not hard-code the host. Keep `ALLOW_INDEXING` false until the pages you want in search have real listings and written intros.
 
 The image command is `npm start`. It does not migrate and it does not seed. The image is one stage. It is not a Next.js standalone build: `saj-web` and `saj-migrate` share it, and the job needs the Prisma CLI, `tsx`, and the seed.
+
+## Production pipeline
+
+`.github/workflows/deploy.yml` deploys production. It runs on a push to `main`, and from Actions → Deploy → Run workflow when the selected ref is `main`. A manual run from any other ref fails. Pull requests do not deploy.
+
+The workflow waits on concurrency group `production-deploy` and does not cancel a deploy that is already running. Its token can read the repo and request an OIDC token (`contents: read`, `id-token: write`). Nothing in the workflow is a service-account key.
+
+The deploy job uses the GitHub environment `production`. Typecheck, lint, and tests run before that job is queued, so a required reviewer is asked only after those checks pass.
+
+Order of work:
+
+1. The CI workflow (`.github/workflows/ci.yml`) runs via `workflow_call`: `npm ci`, `prisma generate`, `tsc --noEmit`, `npm run lint`, and `npm test`. The service deploy does not start unless that job succeeds.
+2. Authenticate with `google-github-actions/auth` (Workload Identity Federation, `create_credentials_file: true`) as `saj-deployer@saj-prod-512711.iam.gserviceaccount.com` and install the Cloud SDK. The credentials file is Application Default Credentials for `firebase-tools`. It is gitignored and listed in `.dockerignore` so `COPY . .` cannot bake it into the image.
+3. Build the repo Dockerfile with Docker Buildx on the runner and push `asia-south1-docker.pkg.dev/saj-prod-512711/saj/web:<7-character sha>`. The build passes `NEXT_PUBLIC_APP_URL=https://letstrim.com` and does not pass `ALLOW_INDEXING` or any secret. Layer cache is the registry image `asia-south1-docker.pkg.dev/saj-prod-512711/saj/web-cache:latest` (the first deploy has nothing to restore). The workflow does not use `gcloud builds submit`.
+4. Point Cloud Run job `saj-migrate` at that image and execute it with `--wait`. The job's existing command stays `sh scripts/migrate-job.sh` (migrations, then the production seed). The workflow does not change the job's env vars or secrets. If the execution fails, the workflow stops here.
+5. Deploy Cloud Run service `saj-web` with only the new image: `gcloud run deploy saj-web --image <image> --region asia-south1`. Env vars, Secret Manager secrets, and the runtime service account `saj-run@saj-prod-512711.iam.gserviceaccount.com` stay as they are on the service. The workflow never sets `ALLOW_INDEXING`.
+6. Deploy Firebase Hosting for site `saj-prod-512711`: `npx firebase-tools@15.34.1 deploy --only hosting --project saj-prod-512711 --non-interactive`.
+7. Smoke test `https://letstrim.com/` and `https://saj-web-osvfthn27a-el.a.run.app/`. Each must return HTTP 200 and an `x-robots-tag` header containing `noindex`. Anything else fails the job.
+
+The job summary lists the commit, image tag, revision, the revision that was serving before this run, and the smoke test result.
+
+Cloud Run keeps traffic on the previous revision when `gcloud run deploy` fails (the new revision never becomes ready). A failed migration never reaches that deploy. A smoke test runs only after the service deploy has succeeded, so a red smoke test means the new revision is already serving. Put traffic back with the rollback command below.
+
+### One-time setup
+
+Keyless auth is already in place. Ops ran the Workload Identity Federation script separately. This repo does not create the pool, the provider, or a key. The org blocks service-account key creation (`constraints/iam.disableServiceAccountKeyCreation`).
+
+| | |
+| --- | --- |
+| GCP project | `saj-prod-512711` (number `65255661358`), region `asia-south1` |
+| `WIF_PROVIDER` | `projects/65255661358/locations/global/workloadIdentityPools/github/providers/salon-project` |
+| `DEPLOY_SA` | `saj-deployer@saj-prod-512711.iam.gserviceaccount.com` |
+| Runtime service account | `saj-run@saj-prod-512711.iam.gserviceaccount.com` |
+| Image | `asia-south1-docker.pkg.dev/saj-prod-512711/saj/web:<7-character sha>` |
+
+The provider's attribute condition accepts tokens only from `ankitadhakate/salon-project` on `refs/heads/main`. The deploy job runs on a push to `main`, or on `workflow_dispatch` from `main`. Any other ref fails before it requests a token.
+
+`saj-deployer` has:
+
+- `roles/run.admin` on the project
+- `roles/artifactregistry.writer` on Artifact Registry repository `saj` in `asia-south1`
+- `roles/firebasehosting.admin`
+- `roles/serviceusage.serviceUsageConsumer`
+- `roles/iam.serviceAccountUser` (`actAs`) on `saj-run`
+
+It does not have Cloud Build or Secret Manager admin. The workflow builds and pushes with Docker on the runner. It never calls `gcloud builds submit`, and it never reads or changes env vars or secrets on `saj-migrate` or `saj-web`.
+
+`WIF_PROVIDER` and `DEPLOY_SA` are not secrets. They are hardcoded as the defaults in the workflow `env`. A repository Actions variable of the same name overrides a default. An empty variable keeps the default.
+
+| Variable | Default |
+| --- | --- |
+| `GCP_PROJECT_ID` | `saj-prod-512711` |
+| `GCP_REGION` | `asia-south1` |
+| `GAR_REPOSITORY` | `saj` |
+| `WIF_PROVIDER` | `projects/65255661358/locations/global/workloadIdentityPools/github/providers/salon-project` |
+| `DEPLOY_SA` | `saj-deployer@saj-prod-512711.iam.gserviceaccount.com` |
+| `FIREBASE_PROJECT` | `saj-prod-512711` |
+
+### Required reviewers
+
+The deploy job is bound to the GitHub environment `production`. GitHub creates that environment the first time the workflow runs. To make Ankita approve each production deploy:
+
+1. Open the repository **Settings → Environments → production**. Create `production` first if it is not there yet.
+2. Under Deployment protection rules, enable **Required reviewers** and add Ankita.
+3. Under Deployment branches, allow `main` only.
+
+Checks still run as soon as `main` changes. The deploy job waits until a required reviewer approves it.
+
+### Roll back
+
+List revisions if you need the name:
+
+```sh
+gcloud run revisions list --service saj-web --region asia-south1 --project saj-prod-512711
+```
+
+Send all traffic to an older revision:
+
+```sh
+gcloud run services update-traffic saj-web --to-revisions=<rev>=100 --region asia-south1 --project saj-prod-512711
+```
+
+`<rev>` is the revision name, for example the previous revision printed in the job summary. This does not undo a migration `saj-migrate` already applied. To roll the app forward again, re-run the Deploy workflow from `main` or push a fix to `main`.
 
 ## Photos (Cloud Storage, keyless)
 
@@ -66,7 +149,7 @@ Generate `AUTH_SECRET` with `openssl rand -base64 32`. Production refuses secret
 
 ## Image
 
-Build this Dockerfile and push it to Artifact Registry. The build passes placeholder `DATABASE_URL` and `DIRECT_URL` into `prisma generate` only. Those values are not stored in the image. The real URLs come from Secret Manager on `saj-web` and `saj-migrate`.
+The production workflow builds this Dockerfile on the GitHub runner and pushes it to Artifact Registry. The build passes placeholder `DATABASE_URL` and `DIRECT_URL` into `prisma generate` only. Those values are not stored in the image. The real URLs come from Secret Manager on `saj-web` and `saj-migrate`. The workflow also passes `NEXT_PUBLIC_APP_URL=https://letstrim.com`, which `next build` inlines. It does not pass `ALLOW_INDEXING`. That flag stays on the Cloud Run service, and the smoke test requires `noindex`.
 
 Leave the container command empty so the image command runs: `npm start`. That listens on `PORT`, which Cloud Run sets. Do not point `saj-web` at `npm run migrate:deploy`. Several replicas would migrate at once.
 
@@ -81,10 +164,12 @@ Service id `saj-web`, region `asia-south1`, minimum instances `0`. The service a
 Job id `saj-migrate`, same image, same region, same service account. Container command:
 
 ```sh
-npm run migrate:deploy
+sh scripts/migrate-job.sh
 ```
 
-Run `saj-migrate` after each deploy that includes a new file under `prisma/migrations`, and wait until it succeeds before sending traffic to that revision. The job needs `NODE_ENV=production` and the same secrets and settings as `saj-web`: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=gcs`, `GCS_BUCKET`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The seed runs the production check, which requires `GCS_BUCKET` when the driver is `gcs`, even though this job does not upload photos. The job applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. Set `DIRECT_URL` on the job. If `DATABASE_URL` is the Neon pooler, the script refuses to copy it. When there is no pooler and `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
+That is the script behind `npm run migrate:deploy`. The production workflow updates only the job image, then runs `gcloud run jobs execute saj-migrate --wait` before it deploys `saj-web`. It does this on every deploy, not only when `prisma/migrations` changes. Applied migrations are skipped. The seed still runs. The workflow does not change the job command, env vars, or secrets. If the execution fails, `saj-web` is left on its current revision.
+
+The job needs `NODE_ENV=production` and the same secrets and settings as `saj-web`: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `IMAGE_DRIVER=gcs`, `GCS_BUCKET`, and `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The seed runs the production check, which requires `GCS_BUCKET` when the driver is `gcs`, even though this job does not upload photos. The job applies migrations, then seeds the admin, the launch city, and its areas. It does not load sample salons. Set `DIRECT_URL` on the job. If `DATABASE_URL` is the Neon pooler, the script refuses to copy it. When there is no pooler and `DIRECT_URL` is missing, the job copies `DATABASE_URL`.
 
 `npm run migrate:deploy` applies `prisma/migrations` and runs the seed. When `NODE_ENV=production` the seed creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD` if that user does not exist yet, and upserts the launch city and its areas. It does not load sample salons or sample owners. Service pages are still added in the admin screen. If a database was seeded outside production and still has sample rows, run `npm run db:clear-demo` before launch. Sample salons stay labelled Sample either way, and they stay hidden on the public site unless `SHOW_DEMO_LISTINGS=true`.
 
