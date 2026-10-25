@@ -53,7 +53,7 @@ function ServicePick({
   const boxId = `pick-${index}`
   const priceId = `price-${index}`
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-card px-3 py-3 ring-1 ring-foreground/10">
+    <div className="flex items-center gap-3 rounded-xl bg-card px-3 py-3 shadow-card ring-1 ring-border">
       <input
         id={boxId}
         type="checkbox"

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Fraunces, Outfit } from "next/font/google"
+import { Plus_Jakarta_Sans } from "next/font/google"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
 import { allowIndexing } from "@/lib/indexing"
@@ -8,16 +8,11 @@ import { siteName } from "@/lib/site"
 import { appBaseUrl } from "@/lib/urls"
 import "./globals.css"
 
-const outfit = Outfit({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  variable: "--font-jakarta",
   display: "swap",
-})
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
+  weight: ["400", "500", "600", "700"],
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -41,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#f4efe6",
+  themeColor: "#f7ede2",
   width: "device-width",
   initialScale: 1,
 }
@@ -51,7 +46,7 @@ export const dynamic = "force-dynamic"
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getSessionUser()
   return (
-    <html lang="en" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <a
           href="#main"

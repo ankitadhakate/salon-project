@@ -90,14 +90,14 @@ export default async function AdminPage({
           ["Live", counts.live],
           ["Hidden", counts.hidden],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <div key={label} className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
             <dt className="text-sm text-muted-foreground">{label}</dt>
             <dd className="font-heading text-3xl">{value}</dd>
           </div>
         ))}
       </dl>
 
-      <form action={updateApprovalMode} className="mt-6 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <form action={updateApprovalMode} className="mt-6 rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
         <label className="flex items-start gap-3">
           <input
             type="checkbox"
@@ -127,7 +127,7 @@ export default async function AdminPage({
           Claim link: {appUrl(claimPath)}
         </p>
       ) : null}
-      <form action={createUnclaimedListing} className="mt-4 grid gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <form action={createUnclaimedListing} className="mt-4 grid gap-4 rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
         <div className="grid gap-1.5">
           <Label htmlFor="claim-name">Salon name</Label>
           <Input id="claim-name" name="name" required className="h-12 px-3 text-base md:text-base" />
@@ -173,7 +173,7 @@ export default async function AdminPage({
       ) : (
         <ul className="mt-4 grid gap-3">
           {salons.map((salon) => (
-            <li key={salon.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+            <li key={salon.id} className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-heading text-2xl">{salon.name}</p>
@@ -238,7 +238,7 @@ export default async function AdminPage({
                 ) : null}
                 <Link
                   href={`/${salon.citySlug}/${salon.areaSlug}/${salon.slug}`}
-                  className="inline-flex h-10 items-center px-2 text-sm font-medium text-primary"
+                  className="inline-flex h-10 items-center px-2 text-sm font-medium text-sage-ink"
                 >
                   Open
                 </Link>
@@ -258,7 +258,7 @@ export default async function AdminPage({
       </p>
       <ul className="mt-4 grid gap-3">
         {owners.map((owner) => (
-          <li key={owner.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <li key={owner.id} className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="font-medium">{owner.name}</p>
               <p className="text-sm text-muted-foreground">{formatWhen(owner.createdAt)}</p>
@@ -272,7 +272,7 @@ export default async function AdminPage({
               {owner.salon ? (
                 <>
                   {owner.salon.name} · {statusLabel(owner.salon.status)} ·{" "}
-                  <Link className="text-primary" href={`/${owner.salon.citySlug}/${owner.salon.areaSlug}/${owner.salon.slug}`}>
+                  <Link className="text-sage-ink" href={`/${owner.salon.citySlug}/${owner.salon.areaSlug}/${owner.salon.slug}`}>
                     page
                   </Link>
                 </>

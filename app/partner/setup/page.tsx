@@ -120,7 +120,7 @@ export default async function PartnerSetupPage({
           </details>
           <p className="text-sm">
             Already listed?{" "}
-            <Link href="/partner/login" className="font-medium text-primary">
+            <Link href="/partner/login" className="font-medium text-sage-ink">
               Log in
             </Link>
           </p>
@@ -268,7 +268,7 @@ export default async function PartnerSetupPage({
           {salon.photos.length ? (
             <ul className="grid grid-cols-3 gap-2">
               {salon.photos.map((photo) => (
-                <li key={photo.id} className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+                <li key={photo.id} className="overflow-hidden rounded-xl shadow-card ring-1 ring-border">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photo.url} alt={photo.alt || salon.name} className="aspect-square w-full object-cover" />
                 </li>
@@ -293,7 +293,7 @@ export default async function PartnerSetupPage({
           </form>
           <p className="text-sm text-muted-foreground">
             A new listing waits in the review queue. Speciality, brands, parking, and hours are on the{" "}
-            <Link href="/partner/edit" className="font-medium text-primary">
+            <Link href="/partner/edit" className="font-medium text-sage-ink">
               full editor
             </Link>
             .

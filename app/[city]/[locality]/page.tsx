@@ -12,6 +12,7 @@ import { typicalPriceLabel } from "@/lib/format"
 import { directoryEligible, robotsForListing } from "@/lib/indexing"
 import { getLocality, listActiveCities } from "@/lib/places"
 import { areaServicePrices, countRealSalons, listLiveSalons } from "@/lib/salons"
+import { siteName } from "@/lib/site"
 import { appUrl } from "@/lib/urls"
 
 type Props = { params: Promise<{ city: string; locality: string }>; searchParams: Promise<SearchParams> }
@@ -103,9 +104,9 @@ export default async function LocalityPage({ params, searchParams }: Props) {
       {priceRange ? <p className="mt-3 text-base font-medium">{priceRange}</p> : null}
       {intro ? <p className="mt-3 max-w-2xl text-muted-foreground">{intro}</p> : null}
       <div className="mt-4">
-        <WhatsAppShare message={`Salons in ${locality.name}, ${city.name}: ${pageUrl}`} />
+        <WhatsAppShare message={`Salons in ${locality.name}, ${city.name} on ${siteName()}: ${pageUrl}`} />
       </div>
-      <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+      <div className="mt-6">
         <SearchForm
           cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}
           defaults={{

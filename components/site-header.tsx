@@ -13,7 +13,7 @@ export async function SiteHeader({ user }: { user: NavUser }) {
   const name = siteName()
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur">
-      <div className="h-1 bg-primary" />
+      <div className="h-1 bg-mustard" />
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-3">
         <Link href="/" className="inline-flex h-11 items-center font-heading text-[1.7rem] leading-none tracking-tight">
           {name}
@@ -27,19 +27,19 @@ export async function SiteHeader({ user }: { user: NavUser }) {
             List your salon free
           </Link>
           <nav className="hidden items-center gap-5 text-sm sm:flex">
-            <Link href={browse} className="hover:text-primary">
+            <Link href={browse} className="hover:text-sage-ink">
               Browse
             </Link>
-            <Link href="/for-salons" className="hover:text-primary">
+            <Link href="/for-salons" className="hover:text-sage-ink">
               For salons
             </Link>
             {user?.role === "ADMIN" ? (
-              <Link href="/admin" className="hover:text-primary">
+              <Link href="/admin" className="hover:text-sage-ink">
                 Admin
               </Link>
             ) : null}
             {user && user.role !== "ADMIN" ? (
-              <Link href="/partner" className="hover:text-primary">
+              <Link href="/partner" className="hover:text-sage-ink">
                 Partner
               </Link>
             ) : null}

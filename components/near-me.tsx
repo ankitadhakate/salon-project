@@ -102,7 +102,7 @@ export function NearMe({
           {pending ? "Finding you…" : active ? "Update my location" : "Use my location"}
         </button>
         {active ? (
-          <button type="button" onClick={stop} className="h-11 rounded-full px-3 text-sm font-medium text-primary">
+          <button type="button" onClick={stop} className="h-11 rounded-full px-3 text-sm font-medium text-sage-ink">
             Stop using my location
           </button>
         ) : null}
@@ -129,8 +129,8 @@ export function NearMe({
                 aria-pressed={selected}
                 className={
                   selected
-                    ? "h-11 rounded-full bg-foreground px-3 text-sm font-medium text-background"
-                    : "h-11 rounded-full border border-border bg-card px-3 text-sm"
+                    ? "h-11 rounded-full bg-sage px-3 text-sm font-semibold text-foreground"
+                    : "h-11 rounded-full border border-border bg-card px-3 text-sm text-foreground hover:bg-blush"
                 }
               >
                 {label}
@@ -140,7 +140,7 @@ export function NearMe({
         </div>
       ) : null}
       {denied ? (
-        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
           <p className="text-sm font-medium">Location is off. Pick your area instead.</p>
           {localities.length ? (
             <label className="mt-3 grid gap-1.5 text-sm font-medium">

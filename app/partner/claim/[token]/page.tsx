@@ -61,7 +61,7 @@ export default async function ClaimPage({
       {!usable || !invite?.salon ? (
         <p className="mt-4 text-muted-foreground">
           This claim link has expired, was replaced, or was already used.{" "}
-          <Link href="/partner/login" className="font-medium text-primary">
+          <Link href="/partner/login" className="font-medium text-sage-ink">
             Log in
           </Link>{" "}
           if you already took it over.
@@ -99,7 +99,7 @@ export default async function ClaimPage({
             </SubmitButton>
           </form>
           <p className="mt-4 text-sm text-muted-foreground">
-            <Link href={`/partner/claim/${token}`} className="font-medium text-primary">
+            <Link href={`/partner/claim/${token}`} className="font-medium text-sage-ink">
               Send a new code
             </Link>
             . The new code replaces the previous one.

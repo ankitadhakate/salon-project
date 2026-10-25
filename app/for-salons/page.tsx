@@ -52,7 +52,9 @@ export default async function ForSalonsPage({
     <div>
       <section className="px-4 pt-10 pb-8 sm:pt-16">
         <div className="mx-auto max-w-3xl">
-          <p className="text-sm font-medium tracking-wide text-primary">Early partner program</p>
+          <p className="inline-flex h-8 items-center rounded-full bg-mustard px-3 text-sm font-semibold text-foreground">
+            Early partner program
+          </p>
           <h1 className="mt-2 font-heading text-4xl leading-[1.05] text-balance sm:text-6xl">
             Put your salon on the list. Free while we launch.
           </h1>
@@ -83,7 +85,7 @@ export default async function ForSalonsPage({
           ["An Early partner badge", "Salons that join now are marked on their page, so people can see you were here first."],
           ["WhatsApp enquiries", "A button opens a chat to your number. The directory doesn't take a cut or hold the booking."],
         ].map(([title, body]) => (
-          <article key={title} className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
+          <article key={title} className="rounded-2xl bg-card p-5 shadow-card ring-1 ring-border">
             <h2 className="font-heading text-2xl">{title}</h2>
             <p className="mt-2 text-sm text-muted-foreground">{body}</p>
           </article>
@@ -100,7 +102,9 @@ export default async function ForSalonsPage({
             ["Show up in your area", "Your page lives at /your-city/your-area/your-salon and appears when people search that locality."],
           ].map(([title, body], index) => (
             <li key={title} className="flex gap-4">
-              <span className="font-heading text-3xl text-primary">{index + 1}</span>
+              <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-mustard font-heading text-lg text-foreground">
+                {index + 1}
+              </span>
               <div>
                 <h3 className="font-heading text-2xl">{title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{body}</p>

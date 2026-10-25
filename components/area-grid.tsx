@@ -17,7 +17,7 @@ export function AreaGrid({
           <li key={area.slug}>
             <Link
               href={`/${citySlug}/${area.slug}`}
-              className="flex h-full flex-col justify-between rounded-2xl bg-card px-3 py-3 ring-1 ring-foreground/10 hover:ring-foreground/25"
+              className="flex h-full flex-col justify-between rounded-2xl bg-card px-3 py-3 shadow-card ring-1 ring-border hover:ring-sage"
             >
               <span className="font-medium">{area.name}</span>
               <span className="mt-2 text-xs text-muted-foreground">

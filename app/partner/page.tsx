@@ -36,7 +36,7 @@ export default async function PartnerPage({
     const name = siteName()
     return (
       <div className="mx-auto w-full max-w-lg px-4 py-10">
-        <p className="text-sm font-medium text-primary">For salon owners</p>
+        <p className="text-sm font-semibold text-sage-ink">For salon owners</p>
         <h1 className="mt-2 font-heading text-4xl leading-tight">List your salon on {name}</h1>
         <p className="mt-3 text-muted-foreground">
           Customers browse with no account. Owners use this partner area. Setup is five short steps
@@ -100,7 +100,7 @@ export default async function PartnerPage({
         {stats ? (
           <dl className="mt-4 grid grid-cols-2 gap-3">
             {STATS.map(([label, key]) => (
-              <div key={key} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+              <div key={key} className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
                 <dt className="text-sm text-muted-foreground">{label}</dt>
                 <dd className="font-heading text-3xl tabular-nums">{stats.week[key]}</dd>
                 <dd className="text-sm font-medium">Last 7 days</dd>

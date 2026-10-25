@@ -19,11 +19,11 @@ export function clientIpFromHeaders(headerStore: { get(name: string): string | n
   const forwarded = headerStore.get("x-forwarded-for")
   if (forwarded && hops > 0) {
     const parts = forwarded.split(",").map((part) => part.trim()).filter(Boolean)
-    if (parts.length > 0) {
-      // The rightmost `hops` entries are proxies we trust. The client is the one just to their left.
-      const index = Math.max(0, parts.length - hops - 1)
-      return clipIp(parts[index] ?? "")
-    }
+    // The rightmost `hops` entries are proxies we trust. The client is the address just to their left.
+    // When the list is only those hops, that client slot is missing and the leftmost trusted hop is used.
+    // Fewer entries than that are not a full trusted suffix, so the leftmost value is ignored.
+    if (parts.length > hops) return clipIp(parts[parts.length - hops - 1] ?? "")
+    if (parts.length === hops) return clipIp(parts[0] ?? "")
   }
   return clipIp(headerStore.get("x-real-ip") || "unknown")
 }

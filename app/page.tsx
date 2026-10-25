@@ -81,7 +81,9 @@ export default async function HomePage({
       />
       <section className="px-4 pt-8 pb-4 sm:pt-14">
         <div className="mx-auto max-w-5xl">
-          <p className="text-sm font-medium tracking-wide text-primary">Early access</p>
+          <p className="inline-flex h-8 items-center rounded-full bg-mustard px-3 text-sm font-semibold text-foreground">
+            Early access
+          </p>
           <h1 className="mt-2 max-w-2xl font-heading text-4xl leading-[1.05] text-balance sm:text-6xl">
             Find a salon near you, with the price written down.
           </h1>
@@ -103,17 +105,22 @@ export default async function HomePage({
               ))}
             </ul>
           ) : null}
-          <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
-            <SearchForm cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))} />
-            {primary ? (
-              <Suspense fallback={null}>
-                <NearMe
-                  citySlug={primary.slug}
-                  localities={primary.localities.map((area) => ({ slug: area.slug, name: area.name }))}
-                />
-              </Suspense>
-            ) : null}
-          </div>
+        </div>
+      </section>
+      <SearchForm
+        sticky
+        cities={cities.map((city) => ({ slug: city.slug, name: city.name, localities: city.localities }))}
+      />
+      <section className="px-4">
+        <div className="mx-auto max-w-5xl">
+          {primary ? (
+            <Suspense fallback={null}>
+              <NearMe
+                citySlug={primary.slug}
+                localities={primary.localities.map((area) => ({ slug: area.slug, name: area.name }))}
+              />
+            </Suspense>
+          ) : null}
           {primary ? (
             <ul className="mt-4 hidden gap-2 overflow-x-auto pb-1 sm:flex">
               {quickServices.map((service) => (
@@ -141,14 +148,14 @@ export default async function HomePage({
                   ? `/${primary.slug}?lat=${near.lat.toFixed(5)}&lng=${near.lng.toFixed(5)}${near.km ? `&km=${near.km}` : ""}`
                   : `/${primary.slug}`
               }
-              className="inline-flex h-11 items-center text-sm font-medium text-primary"
+              className="inline-flex h-11 items-center text-sm font-medium text-sage-ink"
             >
               See all
             </Link>
           ) : null}
         </div>
         {preview.length === 0 && near?.km ? (
-          <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+          <div className="rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
             <p className="font-heading text-2xl">No salons within {near.km} km</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Link href={widenNearHref(`/${primary?.slug ?? ""}`, sp, near)} className={cn(buttonVariants(), "h-11 px-4")}>
@@ -162,7 +169,7 @@ export default async function HomePage({
             </div>
           </div>
         ) : preview.length === 0 ? (
-          <div className="rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+          <div className="rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
             <p className="font-heading text-2xl">No public listings yet</p>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
               Owners add themselves. If you run a salon, the early partner page is free.
@@ -199,7 +206,7 @@ export default async function HomePage({
             <div className="sm:hidden">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <h2 className="font-heading text-3xl">Areas</h2>
-                <Link href={`/${city.slug}`} className="inline-flex h-11 items-center text-sm font-medium text-primary">
+                <Link href={`/${city.slug}`} className="inline-flex h-11 items-center text-sm font-medium text-sage-ink">
                   All areas
                 </Link>
               </div>

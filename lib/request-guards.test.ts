@@ -30,9 +30,16 @@ test("picks the client address to the left of the trusted proxy hops", () => {
       clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9, 203.0.113.8, 10.0.0.4, 35.191.0.1" })),
       "203.0.113.8",
     )
+    // The list is only the trusted hops, so the leftmost trusted hop stands in for the client.
     assert.equal(
       clientIpFromRequest(call({ "x-forwarded-for": "203.0.113.8, 10.0.0.1" })),
       "203.0.113.8",
+    )
+    // Fewer addresses than the trusted hops. The single value is client-supplied.
+    assert.equal(clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9" })), "unknown")
+    assert.equal(
+      clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9", "x-real-ip": "203.0.113.4" })),
+      "203.0.113.4",
     )
     process.env.TRUST_PROXY_HOPS = "1"
     assert.equal(

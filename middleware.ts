@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { cacheControlFor } from "@/lib/cache-control"
+import { cacheControlFor, varyForCache } from "@/lib/cache-control"
 import { allowIndexing } from "@/lib/indexing"
 import { readSessionToken, SESSION_COOKIE } from "@/lib/session-token"
 
@@ -8,15 +8,21 @@ function withRobots(response: NextResponse, request: NextRequest) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive")
   }
   const preview = request.nextUrl.searchParams.get("preview") === "1"
-  response.headers.set(
-    "Cache-Control",
-    cacheControlFor({
-      method: request.method,
-      pathname: request.nextUrl.pathname,
-      hasSession: Boolean(request.cookies.get(SESSION_COOKIE)?.value),
-      preview,
-    }),
-  )
+  const cacheControl = cacheControlFor({
+    method: request.method,
+    pathname: request.nextUrl.pathname,
+    hasSession: Boolean(request.cookies.get(SESSION_COOKIE)?.value),
+    preview,
+  })
+  response.headers.set("Cache-Control", cacheControl)
+  const vary = varyForCache(cacheControl)
+  if (vary) {
+    const current = response.headers.get("Vary")
+    const parts = current ? current.split(",").map((part) => part.trim()).filter(Boolean) : []
+    if (!parts.some((part) => part.toLowerCase() === vary.toLowerCase())) {
+      response.headers.set("Vary", parts.length > 0 ? `${parts.join(", ")}, ${vary}` : vary)
+    }
+  }
   return response
 }
 

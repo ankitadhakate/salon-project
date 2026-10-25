@@ -25,7 +25,7 @@ export default async function PartnerEditPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <p className="text-sm">
-        <Link href="/partner" className="font-medium text-primary">
+        <Link href="/partner" className="font-medium text-sage-ink">
           Partner dashboard
         </Link>
       </p>

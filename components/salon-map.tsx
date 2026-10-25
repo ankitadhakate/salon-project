@@ -48,7 +48,7 @@ export function SalonMap({
       ref={frameRef}
       role="img"
       aria-label={`Map showing ${label}`}
-      className="salon-map h-64 overflow-hidden rounded-2xl ring-1 ring-foreground/10"
+      className="salon-map h-64 overflow-hidden rounded-2xl shadow-card ring-1 ring-border"
     />
   )
 }

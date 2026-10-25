@@ -28,7 +28,14 @@ import type { ListedSalon } from "@/lib/salons"
 import { cn } from "@/lib/utils"
 
 const field =
-  "h-12 w-full rounded-lg border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+  "h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
+function chipClass(on: boolean) {
+  return cn(
+    "inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-medium",
+    on ? "bg-sage text-foreground" : "bg-card text-foreground ring-1 ring-border hover:bg-blush",
+  )
+}
 
 const genders = [
   { value: "", label: "Anyone" },
@@ -124,10 +131,68 @@ export function DirectoryBrowser({
   }
 
   return (
-    <div className="mt-6">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mt-6 min-w-0">
+      <div className="grid min-w-0 gap-3">
+        {showService && services.length > 0 ? (
+          <div className="grid gap-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Service</p>
+            <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+              {services.map((item) => {
+                const on = filters.service === item.value
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    aria-pressed={on}
+                    className={chipClass(on)}
+                    onClick={() => apply({ ...filters, service: on ? "" : item.value, page: 1 })}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
+        <div className="grid gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">Price</p>
+          <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+            {PRICE_BANDS.filter((band) => band.value !== "ANY").map((band) => {
+              const on = filters.price === band.value
+              return (
+                <button
+                  key={band.value}
+                  type="button"
+                  aria-pressed={on}
+                  className={chipClass(on)}
+                  onClick={() =>
+                    apply({
+                      ...filters,
+                      price: on ? "" : band.value,
+                      page: 1,
+                    })
+                  }
+                >
+                  {band.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            aria-pressed={filters.open}
+            className={chipClass(filters.open)}
+            onClick={() => apply({ ...filters, open: !filters.open, page: 1 })}
+          >
+            Open now
+          </button>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger className="inline-flex h-11 items-center rounded-full bg-foreground px-4 text-sm font-medium text-background">
+          <DialogTrigger className="inline-flex h-11 items-center rounded-full bg-sage px-4 text-sm font-semibold text-foreground">
             Filters ({count})
           </DialogTrigger>
           <DialogContent placement="sheet">
@@ -233,7 +298,7 @@ export function DirectoryBrowser({
               <button
                 type="button"
                 onClick={chip.drop}
-                className="inline-flex h-11 items-center rounded-full border border-border bg-card px-3 text-sm"
+                className="inline-flex h-11 items-center rounded-full bg-blush-soft px-3 text-sm font-medium text-foreground"
                 aria-label={`Remove ${chip.label}`}
               >
                 {chip.label}
@@ -303,7 +368,7 @@ function EmptyState({
 }) {
   if (filtered) {
     return (
-      <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+      <div className="mt-4 rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
         <p className="font-heading text-2xl">Nothing matches those filters</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {chips.map((chip) => (
@@ -325,7 +390,7 @@ function EmptyState({
   }
   if (empty.kind === "radius") {
     return (
-      <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+      <div className="mt-4 rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
         <p className="font-heading text-2xl">No salons within {empty.radiusKm} km</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {empty.widenHref ? (
@@ -342,7 +407,7 @@ function EmptyState({
   }
   if (empty.kind === "service") {
     return (
-      <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+      <div className="mt-4 rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
         <p className="font-heading text-2xl">No {empty.serviceName?.toLowerCase()} listings yet</p>
         <Link href={empty.cityHref} className={cn(buttonVariants({ variant: "outline" }), "mt-4 h-11 px-4")}>
           All salons in {empty.cityName}
@@ -352,7 +417,7 @@ function EmptyState({
   }
   const place = empty.kind === "area" ? empty.areaName : empty.cityName
   return (
-    <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
+    <div className="mt-4 rounded-2xl bg-card px-4 py-12 text-center shadow-card ring-1 ring-border">
       <p className="font-heading text-2xl">No salons listed in {place} yet</p>
       {empty.nearby && empty.nearby.length > 0 ? (
         <ul className="mt-4 flex flex-wrap justify-center gap-2">

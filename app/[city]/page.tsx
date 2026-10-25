@@ -82,18 +82,19 @@ export default async function CityPage({ params, searchParams }: Props) {
         {city.intro.trim() ||
           `Listings in ${city.name} with prices set by the salon. Message them on WhatsApp when you want to book.`}
       </p>
-      <div className="mt-6 rounded-3xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
-        <SearchForm
-          cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}
-          defaults={{ city: city.slug, service: filters.service, gender: filters.gender || "ANY", price: filters.price || "ANY" }}
+      <SearchForm
+        sticky
+        bleed
+        barClassName="mt-6"
+        cities={cities.map((item) => ({ slug: item.slug, name: item.name, localities: item.localities }))}
+        defaults={{ city: city.slug, service: filters.service, gender: filters.gender || "ANY", price: filters.price || "ANY" }}
+      />
+      <Suspense fallback={null}>
+        <NearMe
+          citySlug={city.slug}
+          localities={city.localities.map((area) => ({ slug: area.slug, name: area.name }))}
         />
-        <Suspense fallback={null}>
-          <NearMe
-            citySlug={city.slug}
-            localities={city.localities.map((area) => ({ slug: area.slug, name: area.name }))}
-          />
-        </Suspense>
-      </div>
+      </Suspense>
       <DirectoryBrowser
         path={`/${city.slug}`}
         filters={filters}

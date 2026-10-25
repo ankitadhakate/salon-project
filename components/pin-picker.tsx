@@ -217,7 +217,7 @@ export function PinPicker({
             Search
           </button>
         </div>
-        <button type="button" onClick={searchWrittenAddress} className="text-left text-sm font-medium text-primary">
+        <button type="button" onClick={searchWrittenAddress} className="text-left text-sm font-medium text-sage-ink">
           Search the address above
         </button>
       </div>
@@ -237,7 +237,7 @@ export function PinPicker({
           ))}
         </ul>
       ) : null}
-      <div ref={frameRef} className="salon-map h-64 overflow-hidden rounded-2xl ring-1 ring-foreground/10" />
+      <div ref={frameRef} className="salon-map h-64 overflow-hidden rounded-2xl shadow-card ring-1 ring-border" />
       <p className="text-sm text-muted-foreground">
         {lat != null && lng != null
           ? "Drag the pin to the door."

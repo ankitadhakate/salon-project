@@ -56,8 +56,8 @@ export function SalonPublicView({
   }, null)
   const shareMessage =
     salon.startingPrice != null
-      ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}: ${pageUrl}`
-      : `${salon.name} in ${place}: ${pageUrl}`
+      ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}, on ${brand}: ${pageUrl}`
+      : `${salon.name} in ${place}, on ${brand}: ${pageUrl}`
   const mapUrl = directionsHref(salon.latitude, salon.longitude, salon.address, place, salon.mapsUrl)
   const showJson = !embedded && !salon.isDemo
   const jsonLd = {
@@ -135,7 +135,7 @@ export function SalonPublicView({
   }
 
   return (
-    <div className={cn("mx-auto max-w-6xl px-4 py-6", embedded ? "max-w-none" : "pb-36 lg:pb-12")}>
+    <div className={cn("mx-auto max-w-6xl px-4 py-6", embedded ? "max-w-none" : "pb-48 lg:pb-12")}>
       {showJson ? (
         <>
           <script
@@ -330,7 +330,7 @@ export function SalonPublicView({
 
         {embedded ? null : (
           <aside className="mt-8 hidden lg:block">
-            <div className="sticky top-24 rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
+            <div className="sticky top-24 rounded-2xl bg-card p-5 shadow-card ring-1 ring-border">
               <p className="font-heading text-2xl">Contact {salon.name}</p>
               <p className="mt-1 mb-4 text-sm text-muted-foreground">
                 {status}. {todayHoursLabel(salon.hours, timeZone)}.
@@ -347,7 +347,7 @@ export function SalonPublicView({
 
       <div
         className={cn(
-          "border-t border-border bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur",
+          "border-t border-border bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(43_42_42/0.06)] backdrop-blur",
           embedded ? "mt-6" : "fixed inset-x-0 bottom-0 z-40 lg:hidden",
         )}
       >

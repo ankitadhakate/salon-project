@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import test from "node:test"
-import { cacheControlFor, IMMUTABLE_CACHE, PRIVATE_NO_STORE, PUBLIC_PAGE_CACHE } from "./cache-control"
+import { cacheControlFor, IMMUTABLE_CACHE, PRIVATE_NO_STORE, PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, varyForCache } from "./cache-control"
 
 const anon = { method: "GET", hasSession: false, preview: false }
 
@@ -11,6 +11,8 @@ test("public pages get a shared cache with stale-while-revalidate", () => {
     assert.equal(cacheControlFor({ ...anon, pathname }), PUBLIC_PAGE_CACHE)
   }
   assert.equal(PUBLIC_PAGE_CACHE, "public, s-maxage=300, stale-while-revalidate=600")
+  assert.equal(varyForCache(PUBLIC_PAGE_CACHE), PUBLIC_PAGE_VARY)
+  assert.equal(PUBLIC_PAGE_VARY, "Cookie")
 })
 
 test("owner, auth, and session responses are private", () => {
@@ -36,6 +38,7 @@ test("owner, auth, and session responses are private", () => {
   assert.equal(cacheControlFor({ ...anon, pathname: "/", hasSession: true }), PRIVATE_NO_STORE)
   assert.equal(cacheControlFor({ ...anon, pathname: "/example-city/central/atelier", preview: true }), PRIVATE_NO_STORE)
   assert.equal(cacheControlFor({ ...anon, method: "POST", pathname: "/" }), PRIVATE_NO_STORE)
+  assert.equal(varyForCache(PRIVATE_NO_STORE), null)
 })
 
 test("firebase hosting caches hashed assets and uploaded photos as immutable", () => {

@@ -50,7 +50,7 @@ export function AdminDirectory({ cities }: { cities: CityRow[] }) {
         /city/service/name. Intros start empty, so new pages stay out of search until you write one.
       </p>
 
-      <form action={addCity} className="mt-6 grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <form action={addCity} className="mt-6 grid gap-3 rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
         <h3 className="font-heading text-2xl">Add a city</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
@@ -78,7 +78,7 @@ export function AdminDirectory({ cities }: { cities: CityRow[] }) {
       </form>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <form action={addLocality} className="grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <form action={addLocality} className="grid gap-3 rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
           <h3 className="font-heading text-2xl">Add a locality</h3>
           <Label htmlFor="loc-city">City</Label>
           <select id="loc-city" name="citySlug" required className={control} defaultValue={cities[0]?.slug ?? ""}>
@@ -94,7 +94,7 @@ export function AdminDirectory({ cities }: { cities: CityRow[] }) {
           <Input id="loc-slug" name="slug" placeholder="Optional" className="h-12 px-3 text-base md:text-base" />
           <SubmitButton className="h-11 w-fit px-4">Add locality</SubmitButton>
         </form>
-        <form action={addServiceGuide} className="grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <form action={addServiceGuide} className="grid gap-3 rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
           <h3 className="font-heading text-2xl">Add a service page</h3>
           <Label htmlFor="svc-city">City</Label>
           <select id="svc-city" name="citySlug" required className={control} defaultValue={cities[0]?.slug ?? ""}>
@@ -114,7 +114,7 @@ export function AdminDirectory({ cities }: { cities: CityRow[] }) {
 
       <div className="mt-6 grid gap-4">
         {cities.map((city) => (
-          <details key={city.slug} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <details key={city.slug} className="rounded-2xl bg-card p-4 shadow-card ring-1 ring-border">
             <summary className="cursor-pointer font-heading text-2xl">
               {city.name}{" "}
               <span className="text-sm font-sans text-muted-foreground">

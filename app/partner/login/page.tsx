@@ -59,7 +59,7 @@ export default async function PartnerLoginPage({
       <LoginMagicForm />
       <p className="mt-6 text-sm">
         New salon?{" "}
-        <Link href="/partner/setup" className="font-medium text-primary">
+        <Link href="/partner/setup" className="font-medium text-sage-ink">
           Start the 5-minute setup
         </Link>
       </p>
