@@ -24,8 +24,8 @@ import {
 import { robotsFor } from "@/lib/indexing"
 import { getSessionUser } from "@/lib/auth"
 import { getSalonBySlug, viewerCanSee } from "@/lib/salons"
+import { ViewBeacon } from "@/components/view-beacon"
 import { siteName } from "@/lib/site"
-import { recordStat } from "@/lib/stats"
 import { appUrl } from "@/lib/urls"
 import { cn } from "@/lib/utils"
 
@@ -58,9 +58,7 @@ export default async function SalonPage({ params }: Props) {
   const viewer = await getSessionUser()
   const access = viewerCanSee(salon, viewer)
   if (!access.visible) notFound()
-  if (!access.preview) {
-    void recordStat(salon.id, "views").catch(() => undefined)
-  }
+  const countView = !access.preview && salon.status === "LIVE" && !salon.isDemo
 
   const groups = new Map<string, typeof salon.services>()
   for (const category of SERVICE_CATEGORIES) groups.set(category, [])
@@ -115,6 +113,7 @@ export default async function SalonPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-36 lg:pb-12">
+      {countView ? <ViewBeacon salonId={salon.id} /> : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}

@@ -35,6 +35,9 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# local database dumps from scripts/pg-dump.sh
+/backups
+
 # sqlite and uploaded salon photos
 /prisma/*.db
 /prisma/*.db-journal

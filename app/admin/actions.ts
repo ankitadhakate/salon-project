@@ -234,6 +234,14 @@ export async function resendClaim(formData: FormData) {
   if (!previous || (!previous.email && !previous.phone)) {
     adminRedirect({ error: "This listing has no email or phone to send a claim link to." })
   }
+  await prisma.claimInvite.updateMany({
+    where: { salonId: salon.id, usedAt: null, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+  await prisma.claimProof.updateMany({
+    where: { invite: { salonId: salon.id }, usedAt: null },
+    data: { usedAt: new Date() },
+  })
   const token = await mintClaim(salon.id, previous.email, previous.phone)
   let mailed = false
   if (previous.email && smtpConfigured()) {
@@ -247,8 +255,8 @@ export async function resendClaim(formData: FormData) {
   revalidatePath("/admin")
   adminRedirect({
     notice: mailed
-      ? `A new claim link for ${salon.name} was emailed and is shown below.`
-      : `A new claim link for ${salon.name} is below. Copy it to the owner.`,
+      ? `A new claim link for ${salon.name} was emailed and is shown below. Older links no longer work.`
+      : `A new claim link for ${salon.name} is below. Older links no longer work.`,
     claim: `/partner/claim/${token}`,
   })
 }

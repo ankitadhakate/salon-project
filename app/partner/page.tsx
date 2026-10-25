@@ -67,7 +67,7 @@ export default async function PartnerPage({
           : salon.status === "PENDING"
             ? "Pending review. Customers cannot see it until it is approved."
             : salon.status === "LIVE"
-              ? "Live. Edits stay on the public page."
+              ? "Live. Customers can see it. Everyday edits show straight away. Name, phone, WhatsApp, photos, and anything in the first 30 days wait for a review."
               : statusLabel(salon.status)}
       </p>
       <div className="mt-4">

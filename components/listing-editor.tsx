@@ -69,7 +69,8 @@ export function ListingEditor({
               "Only you can see this. Submit when the price list and WhatsApp number are in."}
             {salon.status === "PENDING" &&
               `With the ${brand} team for a quick check. You can still edit it.`}
-            {salon.status === "LIVE" && "Customers can find this page. Edits show immediately."}
+            {salon.status === "LIVE" &&
+              "Customers can find this page. Everyday edits show straight away. Name, phone, WhatsApp, photos, and anything in the first 30 days wait for a review."}
             {salon.status === "HIDDEN" &&
               "Hidden from search. Update it, then submit again when you want it reviewed."}
           </p>
@@ -185,7 +186,7 @@ export function ListingEditor({
         <>
           <Section
             title="Photos"
-            hint="Add at least 3 photos — the chairs, the street outside, and the work. Up to 8. The first one is the cover. JPG, PNG, or WebP, under 5 MB."
+            hint="Add at least 3 photos — the chairs, the street outside, and the work. Up to 8. Upload one at a time. The first one is the cover. JPG, PNG, or WebP, under 5 MB. Photos are rotated, resized to 1600px wide, and saved without location data."
           >
             {salon.photos.length < 3 ? (
               <p className="mb-3 text-sm font-medium text-primary">
@@ -229,7 +230,6 @@ export function ListingEditor({
                 name="photos"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                multiple
                 className="h-12 pt-2 text-base"
               />
               <SubmitButton pendingLabel="Uploading…">Upload</SubmitButton>

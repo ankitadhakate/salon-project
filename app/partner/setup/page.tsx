@@ -221,7 +221,7 @@ export default async function PartnerSetupPage({
         <div className="mt-6 grid gap-4">
           <h1 className="font-heading text-3xl">Photos</h1>
           <p className="text-sm text-muted-foreground">
-            Add at least 3. The chairs, the street outside, and the work. JPG, PNG, or WebP, under 5 MB each.
+            Add at least 3, one photo at a time. The chairs, the street outside, and the work. JPG, PNG, or WebP, under 5 MB.
           </p>
           <p className="text-sm font-medium">
             {salon.photos.length} of 3 photos so far.
@@ -240,7 +240,7 @@ export default async function PartnerSetupPage({
           <form action={uploadPhotos} className="grid gap-3">
             <input type="hidden" name="next" value="setup" />
             <Label htmlFor="photos">Upload photos</Label>
-            <Input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required className="h-12 pt-2 text-base" />
+            <Input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" required className="h-12 pt-2 text-base" />
             <SubmitButton pendingLabel="Uploading…" className="h-12 text-base">
               Add photos
             </SubmitButton>
