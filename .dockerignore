@@ -7,3 +7,5 @@ public/uploads
 !public/uploads/.gitkeep
 .env
 npm-debug.log*
+# google-github-actions/auth writes this into the workspace. Keep it out of the image.
+gha-creds-*.json
