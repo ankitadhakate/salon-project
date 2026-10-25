@@ -1,6 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { HeroFinder } from "@/components/hero-finder"
+import { Collections, ListBand, PopularServices } from "@/components/home-discover"
 import { SalonCard } from "@/components/salon-card"
 import { buttonVariants } from "@/components/ui/button"
 import type { Metadata } from "next"
@@ -39,14 +40,12 @@ export default async function HomePage({
   const ask = searchParam(sp, "change") === "1"
   const cities = await listActiveCities()
   const preferred = defaultCity(cities)
-  const listed = near
-    ? await listLiveSalons({
-        near,
-        pageSize: 12,
-        sort: "nearest",
-        timeZone: preferred?.timezone,
-      })
-    : null
+  const listed = await listLiveSalons({
+    near: near ?? undefined,
+    pageSize: 12,
+    sort: near ? "nearest" : "",
+    timeZone: preferred?.timezone,
+  })
   const center = preferred
     ? await prisma.salon.aggregate({
         where: { ...publicSalonWhere(), citySlug: preferred.slug, latitude: { not: null } },
@@ -79,25 +78,27 @@ export default async function HomePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <section className="relative isolate flex min-h-[34rem] items-center sm:min-h-[38rem]">
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Unsplash License. Photo 1521590832167-7bcbfaa6381f. */}
-          <Image
-            src="/brand/salon-hero.jpg"
-            alt="Styling chairs and mirrors in a salon"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/25" aria-hidden />
+        <div className="hero-fade absolute inset-0 overflow-hidden">
+          {/* Unsplash License. Photos 1521590832167, 1560066984, 1522337360788, 1633681926022. */}
+          {[
+            ["/brand/hero-1.jpg", "Styling chairs and mirrors in a salon"],
+            ["/brand/hero-2.jpg", "A stylist washing hair at a salon basin"],
+            ["/brand/hero-3.jpg", "Hands styling long hair in a salon"],
+            ["/brand/hero-4.jpg", "A bright salon interior with mirrors"],
+          ].map(([src, alt], index) => (
+            <div key={src} className="hero-slide">
+              <Image src={src} alt={alt} fill priority={index === 0} sizes="100vw" className="object-cover" />
+            </div>
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" aria-hidden />
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/75 to-transparent" aria-hidden />
         </div>
         <div className="relative z-10 mx-auto w-full max-w-4xl px-4 py-16 text-center text-white">
-          <h1 className="font-heading text-5xl leading-[1.02] font-extrabold tracking-tight text-balance sm:text-6xl">
-            Find salons near you
+          <h1 className="font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl">
+            Find your next salon
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-white sm:text-lg">
-            Haircut, facial, bridal makeup. Prices written down by the salon.
+          <p className="mx-auto mt-4 max-w-xl text-lg text-white sm:text-2xl">
+            {preferred ? `${preferred.name}’s best salons, prices upfront` : "Prices upfront, from the salon"}
           </p>
           <HeroFinder active={Boolean(near)} ask={ask} placeLabel={discovery.place} defaultPlace={defaultPlace} />
         </div>
@@ -115,35 +116,30 @@ export default async function HomePage({
             </Link>
           </div>
         </section>
-      ) : listed && listed.salons.length > 0 ? (
-        <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-          <h2 className="font-heading text-3xl sm:text-4xl">
-            {discovery.place ? `Salons near ${discovery.place}` : "Salons near you"}
-          </h2>
-          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {listed.salons.map((salon, index) => (
-              <SalonCard
-                key={salon.id}
-                salon={salon}
-                distanceKm={salon.distanceKm}
-                className={`rise rise-${Math.min(index, 5)}`}
-              />
-            ))}
-          </ul>
+      ) : listed.salons.length > 0 ? (
+        <section className="bg-blush-soft">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+            <h2 className="font-heading text-3xl tracking-tight sm:text-4xl">
+              {discovery.place ? `Top salons in ${discovery.place}` : near ? "Salons near you" : "Salons on LetsTrim"}
+            </h2>
+            <ul className="mt-8 flex snap-x gap-4 overflow-x-auto pb-4">
+              {listed.salons.map((salon, index) => (
+                <SalonCard
+                  key={salon.id}
+                  salon={salon}
+                  distanceKm={salon.distanceKm}
+                  layout="rail"
+                  className={`rise rise-${Math.min(index, 5)}`}
+                />
+              ))}
+            </ul>
+          </div>
         </section>
       ) : null}
 
-      <section className="mx-auto max-w-6xl px-4 py-8 pb-16">
-        <div className="rounded-3xl bg-blush px-6 py-12 text-center">
-          <h2 className="font-heading text-3xl text-balance sm:text-4xl">List your salon free</h2>
-          <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-            Add your services, your prices, and the door on the map. Customers message you on WhatsApp.
-          </p>
-          <Link href="/partner" className={cn(buttonVariants(), "mt-6 h-12 px-6 text-base")}>
-            List your salon free
-          </Link>
-        </div>
-      </section>
+      <PopularServices />
+      <Collections />
+      <ListBand />
     </div>
   )
 }

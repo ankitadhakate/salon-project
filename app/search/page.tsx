@@ -57,8 +57,9 @@ export default async function SearchPage({
   const next = listed.hasMore ? discoveryPath({ ...query, page: query.page + 1 }) : ""
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="font-heading text-3xl sm:text-4xl">{heading}</h1>
+    <div className="bg-cream">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+      <h1 className="font-heading text-4xl tracking-tight sm:text-6xl">{heading}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {listed.total === 1 ? "1 salon" : `${listed.total} salons`}
         {query.place ? ` · ${query.place}` : ""}
@@ -116,6 +117,7 @@ export default async function SearchPage({
           ) : null}
         </div>
       </div>
+    </div>
     </div>
   )
 }

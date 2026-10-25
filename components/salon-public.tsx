@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Clock, MapPin, Navigation } from "lucide-react"
 import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { ContactActions } from "@/components/contact-actions"
 import { RequestAppointment } from "@/components/request-appointment"
@@ -209,16 +210,32 @@ export function SalonPublicView({
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {salon.isEarlyPartner ? <EarlyPartnerBadge /> : null}
             {salon.isDemo ? <SampleBadge /> : null}
+            {salon.startingPrice != null ? (
+              <span className="inline-flex h-7 items-center rounded-full bg-mustard px-2.5 text-xs font-bold text-ink">
+                from {inr(salon.startingPrice)}
+              </span>
+            ) : null}
             <span className="text-sm text-muted-foreground">{genderLabel(salon.gender)}</span>
-            <span className="text-sm font-medium">{status}</span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-sm font-semibold",
+                status.startsWith("Open") ? "text-sage-ink" : "text-muted-foreground",
+              )}
+            >
+              <span className={cn("size-2 rounded-full", status.startsWith("Open") ? "bg-sage" : "bg-border")} aria-hidden />
+              {status}
+            </span>
           </div>
-          <h1 className="mt-2 font-heading text-4xl text-balance sm:text-5xl">{salon.name}</h1>
+          <h1 className="mt-3 font-heading text-4xl tracking-tight text-balance sm:text-6xl">{salon.name}</h1>
           <div className="mt-3">
             <WhatsAppShare message={shareMessage} salonId={embedded ? "" : salon.id} />
           </div>
-          <p className="mt-3 text-muted-foreground">
-            {salon.address}
-            <span className="block">{place}</span>
+          <p className="mt-3 flex items-start gap-2 text-muted-foreground">
+            <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              {salon.address}
+              <span className="block">{place}</span>
+            </span>
           </p>
           <div className="mt-4 max-w-2xl">
             {salon.latitude != null && salon.longitude != null ? (
@@ -234,6 +251,7 @@ export function SalonPublicView({
                 external
                 className={cn(buttonVariants({ variant: "outline" }), "h-12 px-4 text-base")}
               >
+                <Navigation className="size-4" aria-hidden />
                 Get directions
               </TrackedLink>
               <TrackedLink
@@ -288,7 +306,10 @@ export function SalonPublicView({
             />
           )}
 
-          <h2 className="mt-10 font-heading text-3xl">Opening hours</h2>
+          <h2 className="mt-10 flex items-center gap-2 font-heading text-3xl">
+            <Clock className="size-6 text-primary" aria-hidden />
+            Opening hours
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {status}. {todayHoursLabel(salon.hours, timeZone)} · local time
           </p>

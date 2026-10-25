@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-jakarta), "Avenir Next", "Segoe UI", sans-serif;
   --font-mono: ui-monospace, monospace;
-  --font-heading: var(--font-jakarta), "Avenir Next", "Segoe UI", sans-serif;
+  --font-heading: var(--font-display), var(--font-jakarta), "Avenir Next", "Segoe UI", sans-serif;
   --color-ink: var(--brand-ink);
   --color-mustard: var(--brand-mustard);
   --color-cream: var(--brand-cream);
@@ -76,9 +76,9 @@
   --brand-sage: #84a59d;
   --brand-sage-soft: #e4ebe9;
   --brand-sage-ink: #3e5c55;
-  --brand-coral: #f28482;
-  --brand-coral-button: #b84e4b;
-  --brand-coral-hover: #9e4543;
+  --brand-coral: #f07167;
+  --brand-coral-button: #d23b40;
+  --brand-coral-hover: #be3a40;
   --brand-ink: #2b2a2a;
   --brand-muted: #4e4944;
   --brand-whatsapp: #075e54;
@@ -131,9 +131,9 @@
   h2,
   h3,
   .font-heading {
-    font-family: var(--font-jakarta), "Avenir Next", "Segoe UI", sans-serif;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display), var(--font-jakarta), "Avenir Next", "Segoe UI", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.045em;
   }
   a:focus-visible,
   button:focus-visible,
@@ -178,6 +178,7 @@
   }
   .card-lift:hover {
     transform: translateY(-4px) scale(1.015);
+    box-shadow: 0 22px 44px rgb(43 42 42 / 0.18);
   }
   .img-zoom {
     transition: transform 320ms ease;
@@ -231,12 +232,12 @@ html:has(.home-hero) .site-header .area-pill {
   color: white;
 }
 
-html:has(.home-hero)[data-scrolled="1"] .site-header {
-  background: rgb(255 255 255 / 0.78);
-  border-bottom-color: rgb(43 42 42 / 0.08);
+html:has(.home-hero)[data-scrolled="1"] .site-header,
+html[data-scrolled="1"] .site-header {
+  background: #ffffff;
+  border-bottom-color: transparent;
   color: var(--brand-ink);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgb(43 42 42 / 0.12);
 }
 
 html:has(.home-hero)[data-scrolled="1"] .site-header .wordmark {
@@ -306,6 +307,48 @@ html[data-scrolled="1"] .area-pill {
   82%, 100% { transform: translateX(130%); }
 }
 
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: hero-crossfade 24s infinite;
+}
+
+.hero-slide:nth-child(1) { animation-delay: 0s; }
+.hero-slide:nth-child(2) { animation-delay: 6s; }
+.hero-slide:nth-child(3) { animation-delay: 12s; }
+.hero-slide:nth-child(4) { animation-delay: 18s; }
+
+@keyframes hero-crossfade {
+  0% { opacity: 0; }
+  5% { opacity: 1; }
+  21% { opacity: 1; }
+  28% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.hero-search-bar {
+  transition: box-shadow 180ms ease;
+}
+
+.hero-search-bar:focus-within {
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 6px var(--brand-coral-button),
+    0 18px 40px rgb(210 59 64 / 0.35);
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--brand-blush-soft) 25%, #ffffff 50%, var(--brand-blush-soft) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-lift:hover,
   .group:hover .img-zoom,
@@ -315,9 +358,13 @@ html[data-scrolled="1"] .area-pill {
   }
   .hero-list-cta-in,
   .hero-list-cta,
-  .hero-list-cta::after {
+  .hero-list-cta::after,
+  .hero-slide,
+  .shimmer {
     animation: none;
   }
+  .hero-slide { opacity: 0; }
+  .hero-slide:first-child { opacity: 1; }
 }
 
 .leaflet-control-attribution,

@@ -2,6 +2,7 @@ import { inr } from "@/lib/format"
 
 export const PRICE_BANDS = [
   { value: "ANY", label: "Any price" },
+  { value: "under-300", label: `Under ${inr(300)}` },
   { value: "under-500", label: `Under ${inr(500)}` },
   { value: "500-1500", label: `${inr(500)}–${inr(1500)}` },
   { value: "1500-5000", label: `${inr(1500)}–${inr(5000)}` },
@@ -9,6 +10,7 @@ export const PRICE_BANDS = [
 ] as const
 
 const BAND_RANGE: Record<string, { min?: number; max?: number }> = {
+  "under-300": { max: 300 },
   "under-500": { max: 500 },
   "500-1500": { min: 500, max: 1500 },
   "1500-5000": { min: 1500, max: 5000 },

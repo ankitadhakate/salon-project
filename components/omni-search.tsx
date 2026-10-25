@@ -110,11 +110,11 @@ export function OmniSearch({
         <div
           className={
             embedded
-              ? "relative w-full rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)]"
+              ? "hero-search-bar relative w-full rounded-2xl bg-white shadow-[0_18px_50px_rgb(0_0_0/0.28)]"
               : "relative min-w-0 flex-1"
           }
         >
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search className={`pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 ${embedded ? "text-primary" : "text-muted-foreground"}`} aria-hidden />
           <input
             id={`${listId}-q`}
             value={q}
