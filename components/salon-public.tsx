@@ -3,6 +3,7 @@ import { EarlyPartnerBadge, SampleBadge } from "@/components/badges"
 import { ContactActions } from "@/components/contact-actions"
 import { RequestAppointment } from "@/components/request-appointment"
 import { SalonGallery } from "@/components/salon-gallery"
+import { ServiceTabs } from "@/components/service-tabs"
 import { SalonMap } from "@/components/salon-map"
 import { TrackedLink } from "@/components/tracked-link"
 import { buttonVariants } from "@/components/ui/button"
@@ -246,28 +247,6 @@ export function SalonPublicView({
           {priceUpdated && salon.services.length > 0 ? (
             <p className="mt-1 text-sm text-muted-foreground">Prices updated {formatDay(priceUpdated, timeZone)}</p>
           ) : null}
-          {pricedGroups.length > 2 ? (
-            <nav
-              aria-label="Price categories"
-              className={cn(
-                "sticky z-30 -mx-4 mt-3 overflow-x-auto bg-background/95 px-4 py-2 backdrop-blur",
-                embedded ? "top-0" : "top-[4.25rem]",
-              )}
-            >
-              <ul className="flex w-max gap-2">
-                {pricedGroups.map(([category]) => (
-                  <li key={category}>
-                    <a
-                      href={`#price-${category.toLowerCase()}`}
-                      className="inline-flex h-11 items-center rounded-full border border-border bg-card px-3 text-sm whitespace-nowrap"
-                    >
-                      {category}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ) : null}
           {salon.services.length === 0 ? (
             <div className="mt-3">
               <p className="text-sm text-muted-foreground">Prices not listed yet — ask on WhatsApp</p>
@@ -284,22 +263,17 @@ export function SalonPublicView({
               ) : null}
             </div>
           ) : (
-            pricedGroups.map(([category, services]) => (
-              <section key={category} id={`price-${category.toLowerCase()}`} className="mt-5 scroll-mt-36">
-                <h3 className="text-sm font-medium tracking-wide text-muted-foreground uppercase">{category}</h3>
-                <ul className="mt-1 divide-y divide-border">
-                  {services.map((service) => (
-                    <li key={service.id} className="flex items-baseline justify-between gap-4 py-3">
-                      <div>
-                        <p className="font-medium">{service.name}</p>
-                        <p className="text-sm text-muted-foreground">{formatDuration(service.durationMin)}</p>
-                      </div>
-                      <p className="font-medium tabular-nums">{inr(service.priceInr)}</p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+            <ServiceTabs
+              groups={pricedGroups.map(([category, services]) => ({
+                category,
+                services: services.map((service) => ({
+                  id: service.id,
+                  name: service.name,
+                  meta: formatDuration(service.durationMin),
+                  price: inr(service.priceInr),
+                })),
+              }))}
+            />
           )}
 
           <h2 className="mt-10 font-heading text-3xl">Opening hours</h2>

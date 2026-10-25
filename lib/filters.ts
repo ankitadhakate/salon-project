@@ -15,7 +15,7 @@ const BAND_RANGE: Record<string, { min?: number; max?: number }> = {
   "5000-plus": { min: 5000 },
 }
 
-export type SortKey = "" | "price-asc" | "price-desc" | "nearest"
+export type SortKey = "" | "price-asc" | "price-desc" | "nearest" | "relevance"
 
 export type PublicFilters = {
   service: string
@@ -48,7 +48,9 @@ export function parseFilters(sp: SearchParams): PublicFilters {
   const range = BAND_RANGE[price] ?? {}
   const sortRaw = searchParam(sp, "sort")
   const sort: SortKey =
-    sortRaw === "price-asc" || sortRaw === "price-desc" || sortRaw === "nearest" ? sortRaw : ""
+    sortRaw === "price-asc" || sortRaw === "price-desc" || sortRaw === "nearest" || sortRaw === "relevance"
+      ? sortRaw
+      : ""
   const pageRaw = Number.parseInt(searchParam(sp, "page"), 10)
   const page = Number.isFinite(pageRaw) && pageRaw > 1 ? Math.min(pageRaw, 50) : 1
   return {

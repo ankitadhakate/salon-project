@@ -172,6 +172,70 @@
   color: var(--brand-ink) !important;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .card-lift {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-4px) scale(1.015);
+  }
+  .img-zoom {
+    transition: transform 320ms ease;
+  }
+  .group:hover .img-zoom {
+    transform: scale(1.06);
+  }
+  .rise {
+    animation: rise 420ms ease both;
+  }
+  .rise-1 { animation-delay: 40ms; }
+  .rise-2 { animation-delay: 80ms; }
+  .rise-3 { animation-delay: 120ms; }
+  .rise-4 { animation-delay: 160ms; }
+  .rise-5 { animation-delay: 200ms; }
+  .press:active {
+    transform: scale(0.98);
+  }
+  .sheet-rise[data-open] {
+    animation: sheet-up 220ms ease;
+  }
+  html[data-scrolled="1"] .site-header .header-row {
+    height: 3.25rem;
+  }
+}
+
+.header-search-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  html[data-scrolled="1"] .header-search-mobile {
+    display: block;
+  }
+}
+
+.site-header .header-row {
+  transition: height 180ms ease;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(12px); }
+  to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-lift:hover,
+  .group:hover .img-zoom,
+  .press:active {
+    transform: none;
+  }
+}
+
 .leaflet-control-attribution,
 .leaflet-control-attribution a {
   display: inline-flex !important;

@@ -51,7 +51,7 @@ export function SalonGallery({ photos }: { photos: { id: string; url: string; al
           <button
             key={photo.id}
             type="button"
-            className="h-64 w-[86%] shrink-0 snap-center overflow-hidden rounded-2xl sm:h-96 sm:w-full"
+            className="group h-64 w-[86%] shrink-0 snap-center overflow-hidden rounded-2xl sm:h-96 sm:w-full"
             onClick={() => {
               setIndex(photoIndex)
               setOpen(true)
@@ -65,7 +65,7 @@ export function SalonGallery({ photos }: { photos: { id: string; url: string; al
               width={1600}
               height={1000}
               loading={photoIndex === 0 ? "eager" : "lazy"}
-              className="h-full w-full object-cover"
+              className="img-zoom h-full w-full object-cover"
             />
           </button>
         ))}

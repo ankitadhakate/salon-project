@@ -32,13 +32,15 @@ export function SalonCard({
   const open = salon.hours.length
     ? isOpenNow(salon.hours, salon.city?.timezone || "Asia/Kolkata")
     : null
+  const prices = salon.services.map((service) => service.priceInr)
+  const priced = prices.some((price) => price > 0) || salon.startingPrice != null
   return (
     <li className={className}>
       <Link
         href={href}
-        className="group flex h-full flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-border transition hover:-translate-y-0.5 hover:ring-sage"
+        className="card-lift group flex h-full flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-border"
       >
-        <div className="relative aspect-[16/10] bg-blush-soft">
+        <div className="relative aspect-[16/10] overflow-hidden bg-blush-soft">
           {photo ? (
             // Owner uploads and sample SVGs. next/image does not allow SVG.
             // eslint-disable-next-line @next/next/no-img-element
@@ -47,7 +49,7 @@ export function SalonCard({
               alt={photo.alt || `${salon.name} in ${place || "the city"}`}
               width={640}
               height={400}
-              className="h-full w-full object-cover"
+              className="img-zoom h-full w-full object-cover"
             />
           ) : (
             <SalonFallback name={salon.name} place={place} />
@@ -57,9 +59,20 @@ export function SalonCard({
               <SampleBadge />
             </span>
           ) : null}
+          {priced ? (
+            <span className="absolute top-3 right-3 inline-flex h-7 max-w-[68%] items-center truncate rounded-full bg-mustard px-2.5 text-xs font-semibold text-foreground">
+              {priceLabel(prices, salon.startingPrice)}
+            </span>
+          ) : null}
+          {distanceKm != null ? (
+            <span className="absolute bottom-3 left-3 inline-flex h-7 items-center rounded-full bg-card/95 px-2.5 text-xs font-semibold text-foreground">
+              {formatDistance(distanceKm)}
+            </span>
+          ) : null}
           {open === true ? (
-            <span className="absolute right-3 bottom-3 inline-flex h-7 items-center rounded-full bg-sage px-2.5 text-xs font-semibold text-foreground">
-              Open now
+            <span className="absolute right-3 bottom-3 inline-flex h-7 items-center gap-1.5 rounded-full bg-card/95 px-2.5 text-xs font-semibold text-foreground">
+              <span className="size-2 rounded-full bg-sage-ink" aria-hidden />
+              Open
             </span>
           ) : null}
         </div>
@@ -67,10 +80,8 @@ export function SalonCard({
           <h3 className="font-heading text-lg leading-tight group-hover:text-sage-ink">{salon.name}</h3>
           <p className="text-sm text-muted-foreground">
             {area}
-            {distanceKm != null ? ` · ${formatDistance(distanceKm)} away` : ""}
             {` · ${genderLabel(salon.gender)}`}
           </p>
-          <p className="text-sm font-semibold tabular-nums">{priceLabel(salon.services.map((service) => service.priceInr), salon.startingPrice)}</p>
           {open === false ? <p className="text-sm font-medium text-muted-foreground">Closed</p> : null}
           {salon.isEarlyPartner ? (
             <div className="mt-auto pt-2">
