@@ -42,6 +42,20 @@ export function parseNear(sp: SearchParams): NearQuery | null {
   return { lat, lng, km }
 }
 
+export function widenNearHref(path: string, sp: SearchParams, near: NearQuery) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(sp)) {
+    const text = (Array.isArray(value) ? value[0] : value)?.trim() ?? ""
+    if (!text || key === "km" || key === "page") continue
+    params.set(key, text)
+  }
+  params.set("lat", near.lat.toFixed(5))
+  params.set("lng", near.lng.toFixed(5))
+  const next = near.km === 2 ? 5 : near.km === 5 ? 10 : null
+  if (next) params.set("km", String(next))
+  return `${path}?${params.toString()}`
+}
+
 export function withNearQuery(pathWithQuery: string, sp: SearchParams) {
   const near = parseNear(sp)
   if (!near) return pathWithQuery

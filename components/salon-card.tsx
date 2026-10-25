@@ -30,6 +30,8 @@ export function SalonCard({
             <img
               src={photo.url}
               alt={photo.alt || `${salon.name} in ${place || "the city"}`}
+              width={640}
+              height={400}
               className="h-full w-full object-cover"
             />
           ) : (

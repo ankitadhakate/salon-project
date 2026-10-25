@@ -44,8 +44,8 @@ export function formatTime(value: string) {
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value
   const suffix = hour >= 12 ? "pm" : "am"
   const hour12 = hour % 12 || 12
-  if (!minute) return `${hour12}${suffix}`
-  return `${hour12}:${String(minute).padStart(2, "0")}${suffix}`
+  if (!minute) return `${hour12} ${suffix}`
+  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`
 }
 
 export function formatPhone(local: string, dialCode = "91") {
@@ -82,7 +82,7 @@ export function typicalPriceLabel(prices: Array<number | null | undefined>) {
   return `Typical prices from ${inr(low)} to ${inr(high)}`
 }
 
-type HourRow = {
+export type HourRow = {
   dayOfWeek: number
   closed: boolean
   openTime: string
@@ -124,11 +124,60 @@ export function clockMinutes(timeZone = "Asia/Kolkata", now = new Date()) {
   return hour * 60 + minute
 }
 
+function overnight(row: HourRow) {
+  return minutes(row.closeTime) <= minutes(row.openTime)
+}
+
 export function isOpenNow(hours: HourRow[], timeZone = "Asia/Kolkata", now = new Date()) {
-  const row = hours.find((hour) => hour.dayOfWeek === weekdayIndex(timeZone, now))
-  if (!row || row.closed) return false
+  const day = weekdayIndex(timeZone, now)
   const current = clockMinutes(timeZone, now)
-  return current >= minutes(row.openTime) && current < minutes(row.closeTime)
+  const today = hours.find((hour) => hour.dayOfWeek === day)
+  const yesterday = hours.find((hour) => hour.dayOfWeek === (day + 6) % 7)
+  if (today && !today.closed) {
+    const open = minutes(today.openTime)
+    const close = minutes(today.closeTime)
+    if (close > open && current >= open && current < close) return true
+    if (close <= open && current >= open) return true
+  }
+  if (yesterday && !yesterday.closed && overnight(yesterday) && current < minutes(yesterday.closeTime)) {
+    return true
+  }
+  return false
+}
+
+/** "Open now · closes 8 pm" or "Closed · opens 10 am tomorrow". */
+export function openStatusLabel(hours: HourRow[], timeZone = "Asia/Kolkata", now = new Date()) {
+  const day = weekdayIndex(timeZone, now)
+  const current = clockMinutes(timeZone, now)
+  const today = hours.find((hour) => hour.dayOfWeek === day)
+  const yesterday = hours.find((hour) => hour.dayOfWeek === (day + 6) % 7)
+  if (isOpenNow(hours, timeZone, now)) {
+    if (yesterday && !yesterday.closed && overnight(yesterday) && current < minutes(yesterday.closeTime)) {
+      return `Open now · closes ${formatTime(yesterday.closeTime)}`
+    }
+    if (today && !today.closed) return `Open now · closes ${formatTime(today.closeTime)}`
+    return "Open now"
+  }
+  for (let offset = 0; offset < 7; offset += 1) {
+    const index = (day + offset) % 7
+    const row = hours.find((hour) => hour.dayOfWeek === index)
+    if (!row || row.closed) continue
+    if (offset === 0 && current >= minutes(row.openTime)) continue
+    const when = offset === 1 ? " tomorrow" : offset > 1 ? ` ${DAYS[index]}` : ""
+    return `Closed · opens ${formatTime(row.openTime)}${when}`
+  }
+  return "Closed"
+}
+
+/** Clock in the city, for the open-now SQL filter. */
+export function openNowClock(timeZone = "Asia/Kolkata", now = new Date()) {
+  const total = clockMinutes(timeZone, now)
+  const day = weekdayIndex(timeZone, now)
+  return {
+    day,
+    previousDay: (day + 6) % 7,
+    now: `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
+  }
 }
 
 export function todayHoursLabel(hours: HourRow[], timeZone = "Asia/Kolkata", now = new Date()) {

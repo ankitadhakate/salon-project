@@ -23,7 +23,7 @@ export async function SiteFooter() {
             <ul className="mt-2 grid gap-y-1 text-sm text-muted-foreground">
               {cities.map((city) => (
                 <li key={city.slug}>
-                  <Link href={`/${city.slug}`} className="hover:text-foreground">
+                  <Link href={`/${city.slug}`} className="inline-flex min-h-11 items-center hover:text-foreground">
                     {city.name}
                   </Link>
                 </li>
@@ -35,17 +35,17 @@ export async function SiteFooter() {
           <p className="font-medium">Owners</p>
           <ul className="mt-2 grid gap-1 text-muted-foreground">
             <li>
-              <Link href="/for-salons" className="hover:text-foreground">
+              <Link href="/for-salons" className="inline-flex min-h-11 items-center hover:text-foreground">
                 List your salon free
               </Link>
             </li>
             <li>
-              <Link href="/partner/join" className="hover:text-foreground">
+              <Link href="/partner/join" className="inline-flex min-h-11 items-center hover:text-foreground">
                 Create an account
               </Link>
             </li>
             <li>
-              <Link href="/partner/login" className="hover:text-foreground">
+              <Link href="/partner/login" className="inline-flex min-h-11 items-center hover:text-foreground">
                 Owner login
               </Link>
             </li>

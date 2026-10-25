@@ -129,8 +129,8 @@ export function NearMe({
                 aria-pressed={selected}
                 className={
                   selected
-                    ? "h-10 rounded-full bg-foreground px-3 text-sm font-medium text-background"
-                    : "h-10 rounded-full border border-border bg-card px-3 text-sm"
+                    ? "h-11 rounded-full bg-foreground px-3 text-sm font-medium text-background"
+                    : "h-11 rounded-full border border-border bg-card px-3 text-sm"
                 }
               >
                 {label}
@@ -141,8 +141,7 @@ export function NearMe({
       ) : null}
       {denied ? (
         <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="text-sm font-medium">Location stays off in this browser.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Pick a locality instead.</p>
+          <p className="text-sm font-medium">Location is off. Pick your area instead.</p>
           {localities.length ? (
             <label className="mt-3 grid gap-1.5 text-sm font-medium">
               Locality

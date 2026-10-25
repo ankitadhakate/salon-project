@@ -122,6 +122,8 @@ model Salon {
 
   @@unique([citySlug, areaSlug, slug])
   @@index([status, citySlug, areaSlug])
+  @@index([status, isDemo, citySlug, areaSlug, startingPrice])
+  @@index([latitude, longitude])
   @@index([isDemo])
 }
 
@@ -176,10 +178,12 @@ model SalonStat {
   salonId    String
   salon      Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
   day        DateTime @db.Date
-  views      Int      @default(0)
-  calls      Int      @default(0)
-  whatsapps  Int      @default(0)
-  directions Int      @default(0)
+  views        Int      @default(0)
+  calls        Int      @default(0)
+  whatsapps    Int      @default(0)
+  directions   Int      @default(0)
+  appointments Int      @default(0)
+  shares       Int      @default(0)
 
   @@unique([salonId, day])
   @@index([salonId])

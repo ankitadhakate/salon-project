@@ -25,3 +25,10 @@ export function robotsFor(eligible: boolean): NonNullable<Metadata["robots"]> {
   if (!allowIndexing() || !eligible) return { index: false, follow: false }
   return { index: true, follow: true }
 }
+
+/** Filtered or sorted URLs stay out of the index and point at the clean page. */
+export function robotsForListing(eligible: boolean, filtered: boolean): NonNullable<Metadata["robots"]> {
+  if (!allowIndexing()) return { index: false, follow: false }
+  if (filtered || !eligible) return { index: false, follow: true }
+  return robotsFor(eligible)
+}

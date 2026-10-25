@@ -21,6 +21,8 @@ const STATS = [
   ["Calls", "calls"],
   ["WhatsApp", "whatsapps"],
   ["Directions", "directions"],
+  ["Appointment requests", "appointments"],
+  ["Shares", "shares"],
 ] as const
 
 export default async function PartnerPage({
@@ -92,8 +94,8 @@ export default async function PartnerPage({
           Listing stats
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Views, call taps, WhatsApp taps, and direction taps. Counts only, per day. No visitor name,
-          account, or address is stored.
+          Views, call taps, WhatsApp taps, direction taps, appointment requests, and shares. Counts
+          only, per day. No visitor name, account, or address is stored.
         </p>
         {stats ? (
           <dl className="mt-4 grid grid-cols-2 gap-3">

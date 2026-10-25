@@ -2,24 +2,23 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
+import { DirectoryBrowser } from "@/components/directory-browser"
 import { NearMe } from "@/components/near-me"
-import { SalonCard } from "@/components/salon-card"
 import { SearchForm } from "@/components/search-form"
-import { buttonVariants } from "@/components/ui/button"
-import { filtersToQuery, parseFilters, searchParam, type SearchParams } from "@/lib/filters"
-import { parseNear, rankByDistance, withNearQuery } from "@/lib/geo"
-import { directoryEligible, robotsFor } from "@/lib/indexing"
+import { filtersToQuery, hasActiveQuery, hasListingFilters, parseFilters, searchParam, type SearchParams } from "@/lib/filters"
+import { parseNear, widenNearHref, withNearQuery } from "@/lib/geo"
+import { directoryEligible, robotsFor, robotsForListing } from "@/lib/indexing"
 import { getActiveCity, listActiveCities } from "@/lib/places"
 import { countRealSalons, listLiveSalons } from "@/lib/salons"
 import { appUrl } from "@/lib/urls"
-import { cn } from "@/lib/utils"
 
 type Props = { params: Promise<{ city: string }>; searchParams: Promise<SearchParams> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { city: citySlug } = await params
   const city = await getActiveCity(citySlug)
   if (!city) return { title: "City", robots: robotsFor(false) }
+  const sp = await searchParams
   const count = await countRealSalons({ citySlug: city.slug })
   const title = `Salons in ${city.name}`
   const description =
@@ -30,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: description.slice(0, 180),
     alternates: { canonical: `/${city.slug}` },
     openGraph: { title, description, url: `/${city.slug}` },
-    robots: robotsFor(directoryEligible(city.intro, count)),
+    robots: robotsForListing(directoryEligible(city.intro, count), hasActiveQuery(sp)),
   }
 }
 
@@ -48,15 +47,15 @@ export default async function CityPage({ params, searchParams }: Props) {
   const near = parseNear(sp)
 
   const [listed, cities] = await Promise.all([
-    listLiveSalons({ citySlug: city.slug, ...filters }),
+    listLiveSalons({ citySlug: city.slug, ...filters, near, timeZone: city.timezone }),
     listActiveCities(),
   ])
-  const salons = rankByDistance(listed, near)
+  const { salons, hasMore, total } = listed
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `Salons in ${city.name}`,
-    numberOfItems: salons.length,
+    numberOfItems: total,
     itemListElement: salons.map((salon, index) => ({
       "@type": "ListItem",
       position: index + 1,
@@ -95,35 +94,23 @@ export default async function CityPage({ params, searchParams }: Props) {
           />
         </Suspense>
       </div>
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {salons.length === 0 ? "No matches" : salons.length === 1 ? "1 salon" : `${salons.length} salons`}
-        </p>
-        {filters.service || filters.gender || filters.price ? (
-          <Link href={`/${city.slug}`} className="text-sm font-medium text-primary">
-            Clear filters
-          </Link>
-        ) : null}
-      </div>
-      {salons.length === 0 ? (
-        <div className="mt-4 rounded-2xl bg-card px-4 py-10 text-center ring-1 ring-foreground/10">
-          <p className="font-heading text-2xl">No salons in {city.name} match that yet</p>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            {near?.km
-              ? `Nothing with a map pin within ${near.km} km. Widen the distance, or pick a locality.`
-              : "Try another locality, or list the salon you run."}
-          </p>
-          <Link href="/for-salons" className={cn(buttonVariants(), "mt-4 h-11 px-4")}>
-            List your salon
-          </Link>
-        </div>
-      ) : (
-        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {salons.map((salon) => (
-            <SalonCard key={salon.id} salon={salon} distanceKm={salon.distanceKm} />
-          ))}
-        </ul>
-      )}
+      <DirectoryBrowser
+        path={`/${city.slug}`}
+        filters={filters}
+        near={near}
+        services={city.serviceGuides.map((guide) => ({ value: guide.query, label: guide.name }))}
+        salons={salons}
+        hasMore={hasMore}
+        total={total}
+        empty={{
+          kind: near?.km && !hasListingFilters(filters) ? "radius" : "city",
+          cityName: city.name,
+          cityHref: `/${city.slug}`,
+          nearby: city.localities.slice(0, 6).map((area) => ({ href: `/${city.slug}/${area.slug}`, name: area.name })),
+          widenHref: near?.km ? widenNearHref(`/${city.slug}`, sp, near) : undefined,
+          radiusKm: near?.km,
+        }}
+      />
       {city.serviceGuides.length > 0 ? (
         <div className="mt-10">
           <h2 className="font-heading text-2xl">Services in {city.name}</h2>
@@ -132,7 +119,7 @@ export default async function CityPage({ params, searchParams }: Props) {
               <li key={guide.slug}>
                 <Link
                   href={`/${city.slug}/service/${guide.slug}`}
-                  className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm"
+                  className="inline-flex h-11 items-center rounded-full border border-border px-3 text-sm"
                 >
                   {guide.name}
                 </Link>

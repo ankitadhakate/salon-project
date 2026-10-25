@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
+import { openNowClock } from "@/lib/format"
 
 const placeInclude = {
   city: { select: { slug: true, name: true, timezone: true, dialCode: true, countryCode: true } },
@@ -35,6 +36,8 @@ export function publicSalonWhere(): Prisma.SalonWhereInput {
   }
 }
 
+export const DIRECTORY_PAGE_SIZE = 20
+
 export type SalonQuery = {
   citySlug?: string
   areaSlug?: string
@@ -42,6 +45,31 @@ export type SalonQuery = {
   gender?: "" | "MEN" | "WOMEN" | "UNISEX"
   minPrice?: number
   maxPrice?: number
+  open?: boolean
+  sort?: "" | "price-asc" | "price-desc" | "nearest"
+  page?: number
+  pageSize?: number
+  near?: { lat: number; lng: number; km?: number | null } | null
+  timeZone?: string
+}
+
+export type ListedSalon = SalonCard & { distanceKm: number | null }
+
+function likeTerm(value: string) {
+  return `%${value.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
+}
+
+function distanceSql(near: { lat: number; lng: number } | null | undefined) {
+  if (!near) return Prisma.sql`NULL::double precision`
+  return Prisma.sql`CASE
+    WHEN s.latitude IS NULL OR s.longitude IS NULL THEN NULL
+    ELSE (
+      6371 * acos(LEAST(1::float8, GREATEST(-1::float8,
+        cos(radians(${near.lat})) * cos(radians(s.latitude)) * cos(radians(s.longitude) - radians(${near.lng}))
+        + sin(radians(${near.lat})) * sin(radians(s.latitude))
+      )))
+    )
+  END`
 }
 
 export function realSalonWhere(filter: {
@@ -68,26 +96,96 @@ export function countRealSalons(filter: {
 }
 
 export async function listLiveSalons(query: SalonQuery = {}) {
+  const pageSize = query.pageSize ?? DIRECTORY_PAGE_SIZE
+  const page = Math.max(1, Math.min(query.page ?? 1, 50))
+  const take = page * pageSize
   const service = query.service?.trim().toLowerCase() ?? ""
-  const price =
-    query.minPrice != null || query.maxPrice != null
-      ? { gte: query.minPrice, lte: query.maxPrice }
-      : undefined
-
-  return prisma.salon.findMany({
-    where: {
-      ...publicSalonWhere(),
-      ...(query.citySlug ? { citySlug: query.citySlug } : {}),
-      ...(query.areaSlug ? { areaSlug: query.areaSlug } : {}),
-      ...(query.gender === "MEN" ? { gender: { in: ["MEN", "UNISEX"] } } : {}),
-      ...(query.gender === "WOMEN" ? { gender: { in: ["WOMEN", "UNISEX"] } } : {}),
-      ...(query.gender === "UNISEX" ? { gender: "UNISEX" } : {}),
-      ...(service ? { searchBlob: { contains: service } } : {}),
-      ...(price ? { services: { some: { priceInr: price } } } : {}),
-    },
+  const conditions: Prisma.Sql[] = [Prisma.sql`s.status = 'LIVE'`]
+  if (!demoListingsVisible()) conditions.push(Prisma.sql`s."isDemo" = false`)
+  if (query.citySlug) conditions.push(Prisma.sql`s."citySlug" = ${query.citySlug}`)
+  if (query.areaSlug) conditions.push(Prisma.sql`s."areaSlug" = ${query.areaSlug}`)
+  if (query.gender === "MEN") conditions.push(Prisma.sql`s.gender IN ('MEN', 'UNISEX')`)
+  else if (query.gender === "WOMEN") conditions.push(Prisma.sql`s.gender IN ('WOMEN', 'UNISEX')`)
+  else if (query.gender === "UNISEX") conditions.push(Prisma.sql`s.gender = 'UNISEX'`)
+  if (service) conditions.push(Prisma.sql`s."searchBlob" LIKE ${likeTerm(service)} ESCAPE '\\'`)
+  if (query.minPrice != null || query.maxPrice != null) {
+    const price: Prisma.Sql[] = []
+    if (query.minPrice != null) price.push(Prisma.sql`sv."priceInr" >= ${query.minPrice}`)
+    if (query.maxPrice != null) price.push(Prisma.sql`sv."priceInr" <= ${query.maxPrice}`)
+    conditions.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM "Service" sv WHERE sv."salonId" = s.id AND ${Prisma.join(price, " AND ")})`,
+    )
+  }
+  if (query.open) {
+    const clock = openNowClock(query.timeZone || "Asia/Kolkata")
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1 FROM "OpeningHour" h
+      WHERE h."salonId" = s.id AND h.closed = false AND (
+        (h."dayOfWeek" = ${clock.day} AND h."closeTime" > h."openTime" AND h."openTime" <= ${clock.now} AND h."closeTime" > ${clock.now})
+        OR (h."dayOfWeek" = ${clock.day} AND h."closeTime" <= h."openTime" AND h."openTime" <= ${clock.now})
+        OR (h."dayOfWeek" = ${clock.previousDay} AND h."closeTime" <= h."openTime" AND ${clock.now} < h."closeTime")
+      )
+    )`)
+  }
+  const near = query.near
+  if (near?.km != null) {
+    const deltaLat = near.km / 111
+    const cos = Math.cos((near.lat * Math.PI) / 180) || 1
+    const deltaLng = near.km / (111 * Math.abs(cos))
+    conditions.push(Prisma.sql`s.latitude IS NOT NULL AND s.longitude IS NOT NULL`)
+    conditions.push(Prisma.sql`s.latitude BETWEEN ${near.lat - deltaLat} AND ${near.lat + deltaLat}`)
+    conditions.push(Prisma.sql`s.longitude BETWEEN ${near.lng - deltaLng} AND ${near.lng + deltaLng}`)
+  }
+  const where = Prisma.join(conditions, " AND ")
+  const distance = distanceSql(near)
+  const kmWhere =
+    near?.km != null
+      ? Prisma.sql`distance_km IS NOT NULL AND distance_km <= ${near.km}`
+      : Prisma.sql`TRUE`
+  const order =
+    query.sort === "price-asc"
+      ? Prisma.sql`listed."startingPrice" ASC NULLS LAST, listed.name ASC`
+      : query.sort === "price-desc"
+        ? Prisma.sql`listed."startingPrice" DESC NULLS LAST, listed.name ASC`
+        : query.sort === "nearest" && near
+          ? Prisma.sql`listed.distance_km ASC NULLS LAST, listed.name ASC`
+          : near
+            ? Prisma.sql`listed.distance_km ASC NULLS LAST, listed."isEarlyPartner" DESC, listed.name ASC`
+            : Prisma.sql`listed."isEarlyPartner" DESC, listed.name ASC`
+  const listed = Prisma.sql`
+    SELECT s.id, s.name, s."startingPrice", s."isEarlyPartner", ${distance} AS distance_km
+    FROM "Salon" s
+    WHERE ${where}
+  `
+  const [rows, counted] = await Promise.all([
+    prisma.$queryRaw<Array<{ id: string; distance_km: number | null }>>(Prisma.sql`
+      SELECT listed.id, listed.distance_km
+      FROM (${listed}) listed
+      WHERE ${kmWhere}
+      ORDER BY ${order}
+      LIMIT ${take + 1}
+    `),
+    prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+      SELECT COUNT(*)::int AS count
+      FROM (${listed}) listed
+      WHERE ${kmWhere}
+    `),
+  ])
+  const total = Number(counted[0]?.count ?? 0)
+  const hasMore = rows.length > take
+  const slice = rows.slice(0, take)
+  if (slice.length === 0) return { salons: [] as ListedSalon[], hasMore: false, total }
+  const found = await prisma.salon.findMany({
+    where: { id: { in: slice.map((row) => row.id) } },
     include: cardInclude,
-    orderBy: [{ isEarlyPartner: "desc" }, { name: "asc" }],
   })
+  const byId = new Map(found.map((salon) => [salon.id, salon]))
+  const salons = slice.flatMap((row) => {
+    const salon = byId.get(row.id)
+    if (!salon) return []
+    return [{ ...salon, distanceKm: row.distance_km == null ? null : row.distance_km }]
+  })
+  return { salons, hasMore, total }
 }
 
 export async function areaServicePrices(citySlug: string, areaSlug: string) {

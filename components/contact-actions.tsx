@@ -16,6 +16,7 @@ export function ContactActions({
   salonId = "",
   latitude = null,
   longitude = null,
+  extra = null,
 }: {
   name: string
   phone: string
@@ -28,13 +29,15 @@ export function ContactActions({
   salonId?: string
   latitude?: number | null
   longitude?: number | null
+  extra?: React.ReactNode
 }) {
   if (demo) {
     const note = "Sample listing. WhatsApp and call are switched off so this demo never messages a real number."
     if (layout === "bar") {
       return (
         <div>
-          <div className="flex gap-2">
+          {extra}
+          <div className={extra ? "mt-2 flex gap-2" : "flex gap-2"}>
             <span className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-whatsapp px-4 text-base font-medium text-white opacity-60">
               WhatsApp
             </span>
@@ -46,12 +49,19 @@ export function ContactActions({
         </div>
       )
     }
-    return <p className="rounded-xl bg-secondary px-3 py-3 text-sm">{note}</p>
+    return (
+      <div className="grid gap-2">
+        {extra}
+        <p className="rounded-xl bg-secondary px-3 py-3 text-sm">{note}</p>
+      </div>
+    )
   }
   const callHref = `tel:+${dialCode}${phone}`
   if (layout === "bar") {
     return (
-      <div className="flex gap-2">
+      <div>
+        {extra}
+        <div className={extra ? "mt-2 flex gap-2" : "flex gap-2"}>
         {whatsapp ? (
           <TrackedLink
             salonId={salonId}
@@ -73,11 +83,13 @@ export function ContactActions({
             Call
           </TrackedLink>
         ) : null}
+        </div>
       </div>
     )
   }
   return (
     <div className="grid gap-2">
+      {extra}
       {whatsapp ? (
         <TrackedLink
           salonId={salonId}
@@ -104,7 +116,7 @@ export function ContactActions({
         kind="directions"
         href={directionsHref(latitude, longitude, address, place)}
         external
-        className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+        className="inline-flex h-11 items-center justify-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
         Directions
       </TrackedLink>

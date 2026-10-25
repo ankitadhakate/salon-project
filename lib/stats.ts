@@ -6,9 +6,9 @@ import { isProduction } from "@/lib/production"
 import { clientIpFromRequest, originAllowed, readCookie } from "@/lib/request-guards"
 import { limitStats } from "@/lib/rate-limit"
 
-export type StatKind = "views" | "calls" | "whatsapps" | "directions"
+export type StatKind = "views" | "calls" | "whatsapps" | "directions" | "appointments" | "shares"
 
-const KINDS: StatKind[] = ["views", "calls", "whatsapps", "directions"]
+const KINDS: StatKind[] = ["views", "calls", "whatsapps", "directions", "appointments", "shares"]
 
 export const VISITOR_COOKIE = "saj_vid"
 
@@ -74,15 +74,18 @@ export async function recordPublicStat(
   if (!salon || salon.status !== "LIVE" || salon.isDemo) return { status: 204, cookie }
 
   const day = localDay(salon.city.timezone)
-  try {
-    await prisma.statDedup.create({
-      data: { salonId, day, kind, visitorHash: visitorHash(visitor.id) },
-    })
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { status: 204, cookie }
+  // Appointment requests count every send. The other kinds count once per visitor each local day.
+  if (kind !== "appointments") {
+    try {
+      await prisma.statDedup.create({
+        data: { salonId, day, kind, visitorHash: visitorHash(visitor.id) },
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return { status: 204, cookie }
+      }
+      throw error
     }
-    throw error
   }
 
   await prisma.salonStat.upsert({
@@ -107,7 +110,7 @@ export type StatTotals = {
 }
 
 function emptyBucket(): StatBucket {
-  return { views: 0, calls: 0, whatsapps: 0, directions: 0 }
+  return { views: 0, calls: 0, whatsapps: 0, directions: 0, appointments: 0, shares: 0 }
 }
 
 function shiftDay(day: Date, days: number) {
@@ -123,7 +126,7 @@ async function sumStats(salonId: string, since: Date | null, until: Date | null 
       : undefined
   const row = await prisma.salonStat.aggregate({
     where: { salonId, ...(day ? { day } : {}) },
-    _sum: { views: true, calls: true, whatsapps: true, directions: true },
+    _sum: { views: true, calls: true, whatsapps: true, directions: true, appointments: true, shares: true },
   })
   const bucket = emptyBucket()
   for (const kind of KINDS) bucket[kind] = row._sum[kind] ?? 0

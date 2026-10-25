@@ -9,7 +9,7 @@ export function TrackedLink({
   external = false,
 }: {
   salonId: string
-  kind: "calls" | "whatsapps" | "directions"
+  kind: "calls" | "whatsapps" | "directions" | "appointments" | "shares"
   href: string
   className?: string
   children: React.ReactNode
