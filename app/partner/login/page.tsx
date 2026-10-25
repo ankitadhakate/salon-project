@@ -66,8 +66,8 @@ export default async function PartnerLoginPage({
       {process.env.NODE_ENV !== "production" ? (
         <aside className="mt-6 rounded-xl bg-secondary p-3 text-sm">
           <p className="font-medium">Development accounts</p>
-          <p className="mt-1 text-muted-foreground">Owner: demo-owner@saj.local / saj-demo-owner</p>
-          <p className="text-muted-foreground">Admin: admin@saj.local / saj-admin-dev</p>
+          <p className="mt-1 text-muted-foreground">Owner: demo-owner@example.local / demo-owner-dev</p>
+          <p className="text-muted-foreground">Admin: admin@example.local / admin-dev-pass</p>
         </aside>
       ) : null}
     </div>

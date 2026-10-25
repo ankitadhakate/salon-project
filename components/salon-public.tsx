@@ -58,7 +58,7 @@ export function SalonPublicView({
     salon.startingPrice != null
       ? `${salon.name} in ${place}, from ${inr(salon.startingPrice)}: ${pageUrl}`
       : `${salon.name} in ${place}: ${pageUrl}`
-  const mapUrl = directionsHref(salon.latitude, salon.longitude, salon.address, place)
+  const mapUrl = directionsHref(salon.latitude, salon.longitude, salon.address, place, salon.mapsUrl)
   const showJson = !embedded && !salon.isDemo
   const jsonLd = {
     "@context": "https://schema.org",
@@ -131,6 +131,7 @@ export function SalonPublicView({
     salonId: embedded ? "" : salon.id,
     latitude: salon.latitude,
     longitude: salon.longitude,
+    mapsUrl: salon.mapsUrl,
   }
 
   return (

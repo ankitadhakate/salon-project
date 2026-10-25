@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose"
 
-export const SESSION_COOKIE = "saj_session"
+// Firebase Hosting forwards only this cookie name to Cloud Run and puts it in the CDN cache key.
+export const SESSION_COOKIE = "__session"
 
 function key() {
   const secret = process.env.AUTH_SECRET

@@ -1,11 +1,31 @@
 import { appBaseUrl } from "@/lib/urls"
 
+/** Trusted proxies appended on the right of X-Forwarded-For. Default 2: Firebase Hosting and the Google Front End. */
+export function trustProxyHops() {
+  const raw = process.env.TRUST_PROXY_HOPS
+  if (raw === undefined || raw.trim() === "") return 2
+  const hops = Number(raw)
+  if (!Number.isInteger(hops) || hops < 0 || hops > 10) return 2
+  return hops
+}
+
+function clipIp(value: string) {
+  const trimmed = value.trim()
+  return trimmed.slice(0, 80) || "unknown"
+}
+
 export function clientIpFromHeaders(headerStore: { get(name: string): string | null }) {
+  const hops = trustProxyHops()
   const forwarded = headerStore.get("x-forwarded-for")
-  const raw = forwarded
-    ? forwarded.split(",")[0]!.trim()
-    : headerStore.get("x-real-ip") || "unknown"
-  return raw.slice(0, 80) || "unknown"
+  if (forwarded && hops > 0) {
+    const parts = forwarded.split(",").map((part) => part.trim()).filter(Boolean)
+    if (parts.length > 0) {
+      // The rightmost `hops` entries are proxies we trust. The client is the one just to their left.
+      const index = Math.max(0, parts.length - hops - 1)
+      return clipIp(parts[index] ?? "")
+    }
+  }
+  return clipIp(headerStore.get("x-real-ip") || "unknown")
 }
 
 export function clientIpFromRequest(request: Request) {

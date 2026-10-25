@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto"
+import { IMMUTABLE_CACHE } from "./cache-control"
 import { mkdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
@@ -97,29 +98,40 @@ function requiredEnv(name: string) {
   return value
 }
 
+// GCS XML API and R2 both reject the SDK default (WHEN_SUPPORTED) flexible checksums.
+async function s3Client() {
+  const { S3Client } = await import("@aws-sdk/client-s3")
+  return new S3Client({
+    region: process.env.S3_REGION || "auto",
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+    credentials: {
+      accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
+      secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
+    },
+  })
+}
+
 class S3ImageStorage implements ImageStorage {
   async save(file: File): Promise<StoredImage> {
     const buffer = await prepareImage(file)
     const key = `salons/${Date.now()}-${randomBytes(6).toString("hex")}.webp`
     const bucket = requiredEnv("S3_BUCKET")
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3")
-    const client = new S3Client({
-      region: process.env.S3_REGION || "auto",
-      endpoint: process.env.S3_ENDPOINT || undefined,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-      credentials: {
-        accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
-        secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
-      },
-    })
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3")
+    const client = await s3Client()
     await client.send(
       new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: buffer,
         ContentType: "image/webp",
+        CacheControl: IMMUTABLE_CACHE,
       }),
     )
+    // S3_PUBLIC_URL is the public base, including the bucket for path-style hosts
+    // such as https://storage.googleapis.com/<bucket>.
     const base = (process.env.S3_PUBLIC_URL || "").replace(/\/$/, "")
     const url = base
       ? `${base}/${key}`
@@ -129,16 +141,8 @@ class S3ImageStorage implements ImageStorage {
 
   async remove(key: string) {
     if (!key || key.startsWith("demo/") || key.includes("..")) return
-    const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3")
-    const client = new S3Client({
-      region: process.env.S3_REGION || "auto",
-      endpoint: process.env.S3_ENDPOINT || undefined,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-      credentials: {
-        accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
-        secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
-      },
-    })
+    const { DeleteObjectCommand } = await import("@aws-sdk/client-s3")
+    const client = await s3Client()
     await client.send(
       new DeleteObjectCommand({
         Bucket: requiredEnv("S3_BUCKET"),

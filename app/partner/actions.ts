@@ -21,6 +21,7 @@ import { getLocality } from "@/lib/places"
 import { defaultHours, getOwnerSalon, refreshSalonSearch, uniqueSlug } from "@/lib/salons"
 import { SUGGESTED_SERVICES, type SetupStep } from "@/lib/suggested-services"
 import { parsePin } from "@/lib/geo"
+import { readMapsUrl } from "@/lib/maps-link"
 import { normalizePhone } from "@/lib/validators"
 
 async function requireOwner() {
@@ -62,6 +63,8 @@ export async function saveSalonStep(formData: FormData) {
       field: "latitude",
     })
   }
+  const maps = readMapsUrl(formData)
+  if (!maps.ok) stepRedirect("salon", { error: maps.error, field: "latitude" })
   const existing = await getOwnerSalon(user.id)
   if (!existing) {
     const slug = await uniqueSlug(citySlug, areaSlug, name)
@@ -75,6 +78,7 @@ export async function saveSalonStep(formData: FormData) {
         address,
         latitude: pin.latitude,
         longitude: pin.longitude,
+        mapsUrl: maps.value,
         gender,
         status: "DRAFT",
         isEarlyPartner: EARLY_PARTNER_PROGRAM,
@@ -91,7 +95,17 @@ export async function saveSalonStep(formData: FormData) {
   }
   await prisma.salon.update({
     where: { id: existing.id },
-    data: { name, slug, citySlug, areaSlug, address, gender, latitude: pin.latitude, longitude: pin.longitude },
+    data: {
+      name,
+      slug,
+      citySlug,
+      areaSlug,
+      address,
+      gender,
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      mapsUrl: maps.value,
+    },
   })
   const review = await auditListing({
     salonId: existing.id,
@@ -104,6 +118,7 @@ export async function saveSalonStep(formData: FormData) {
       { field: "city", oldValue: existing.citySlug, newValue: citySlug },
       { field: "area", oldValue: existing.areaSlug, newValue: areaSlug },
       { field: "gender", oldValue: existing.gender, newValue: gender },
+      { field: "mapsUrl", oldValue: existing.mapsUrl ?? "", newValue: maps.value ?? "" },
     ],
   })
   await refreshSalonSearch(existing.id)

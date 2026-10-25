@@ -8,7 +8,7 @@ const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
 function subjectHash(subject: string) {
-  const salt = process.env.AUTH_SECRET || "saj-dev-rate-limit"
+  const salt = process.env.AUTH_SECRET || "dev-rate-limit"
   return createHash("sha256").update(`${salt}\0${subject}`).digest("hex")
 }
 
@@ -79,6 +79,13 @@ export function limitClaim(ip: string, inviteKey: string) {
   return allowBoth([
     { bucket: "claim-ip", subject: ip, limit: 8, windowMs: HOUR },
     { bucket: "claim-invite", subject: inviteKey || "invalid", limit: 5, windowMs: HOUR },
+  ])
+}
+
+export function limitMapsLink(ip: string, userId: string) {
+  return allowBoth([
+    { bucket: "maps-link-user", subject: userId, limit: 20, windowMs: 10 * MINUTE },
+    { bucket: "maps-link-ip", subject: ip, limit: 30, windowMs: HOUR },
   ])
 }
 

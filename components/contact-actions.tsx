@@ -16,6 +16,7 @@ export function ContactActions({
   salonId = "",
   latitude = null,
   longitude = null,
+  mapsUrl = null,
   extra = null,
 }: {
   name: string
@@ -29,6 +30,7 @@ export function ContactActions({
   salonId?: string
   latitude?: number | null
   longitude?: number | null
+  mapsUrl?: string | null
   extra?: React.ReactNode
 }) {
   if (demo) {
@@ -114,7 +116,7 @@ export function ContactActions({
       <TrackedLink
         salonId={salonId}
         kind="directions"
-        href={directionsHref(latitude, longitude, address, place)}
+        href={directionsHref(latitude, longitude, address, place, mapsUrl)}
         external
         className="inline-flex h-11 items-center justify-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >

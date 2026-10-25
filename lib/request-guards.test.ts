@@ -22,10 +22,32 @@ test("origin must match the public host or the request host", () => {
   }
 })
 
-test("reads the first forwarded address and a named cookie", () => {
-  assert.equal(
-    clientIpFromRequest(call({ "x-forwarded-for": "203.0.113.8, 10.0.0.1" })),
-    "203.0.113.8",
-  )
-  assert.equal(readCookie(call({ cookie: "a=1; saj_vid=abc%2F; b=2" }), "saj_vid"), "abc/")
+test("picks the client address to the left of the trusted proxy hops", () => {
+  const previous = process.env.TRUST_PROXY_HOPS
+  delete process.env.TRUST_PROXY_HOPS
+  try {
+    assert.equal(
+      clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9, 203.0.113.8, 10.0.0.4, 35.191.0.1" })),
+      "203.0.113.8",
+    )
+    assert.equal(
+      clientIpFromRequest(call({ "x-forwarded-for": "203.0.113.8, 10.0.0.1" })),
+      "203.0.113.8",
+    )
+    process.env.TRUST_PROXY_HOPS = "1"
+    assert.equal(
+      clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9, 203.0.113.8, 35.191.0.1" })),
+      "203.0.113.8",
+    )
+    process.env.TRUST_PROXY_HOPS = "0"
+    assert.equal(
+      clientIpFromRequest(call({ "x-forwarded-for": "198.51.100.9", "x-real-ip": "203.0.113.4" })),
+      "203.0.113.4",
+    )
+    assert.equal(clientIpFromRequest(call({})), "unknown")
+  } finally {
+    if (previous === undefined) delete process.env.TRUST_PROXY_HOPS
+    else process.env.TRUST_PROXY_HOPS = previous
+  }
+  assert.equal(readCookie(call({ cookie: "a=1; vid=abc%2F; b=2" }), "vid"), "abc/")
 })

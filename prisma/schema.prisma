@@ -3,9 +3,12 @@ generator client {
 }
 
 // Local development and production both use Postgres. See DEPLOY.md.
+// url is the runtime connection. On Neon that is the pooled URL with sslmode=require.
+// directUrl is the non-pooled connection Prisma Migrate uses.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // OWNER accounts self-signup. ADMIN is seeded from env, never chosen on the public form.
@@ -100,6 +103,8 @@ model Salon {
   address        String
   latitude       Float?
   longitude      Float?
+  // Owner-pasted Google Maps link. Directions use this when it is still a Maps URL.
+  mapsUrl        String?
   description    String        @default("")
   phone          String        @default("")
   whatsapp       String        @default("")

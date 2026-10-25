@@ -6,13 +6,13 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: saj
-      POSTGRES_PASSWORD: saj
-      POSTGRES_DB: saj
+      POSTGRES_USER: salon
+      POSTGRES_PASSWORD: salon
+      POSTGRES_DB: salon
     volumes:
-      - saj-pg:/var/lib/postgresql/data
+      - salon-pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U saj -d saj"]
+      test: ["CMD-SHELL", "pg_isready -U salon -d salon"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -24,12 +24,16 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://saj:saj@db:5432/saj
+      DATABASE_URL: postgresql://salon:salon@db:5432/salon
+      DIRECT_URL: postgresql://salon:salon@db:5432/salon
       NODE_ENV: production
+    # One container, so migrate and seed, then listen. Cloud Run uses the image
+    # command (npm start) and runs npm run migrate:deploy as a separate job.
+    command: ["sh", "-c", "npm run migrate:deploy && exec npm start"]
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  saj-pg:
+  salon-pg:

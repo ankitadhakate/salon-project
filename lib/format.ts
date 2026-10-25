@@ -1,4 +1,5 @@
 import { DAYS } from "@/lib/constants"
+import { sanitizeMapsUrl } from "@/lib/maps-link"
 
 export function inr(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -202,13 +203,16 @@ export function mapsHref(address: string, place = "") {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
-/** Google Maps navigation. Coordinates need no API key. */
+/** Google Maps navigation. A stored Maps link wins. Otherwise coordinates, which need no API key. */
 export function directionsHref(
   latitude: number | null | undefined,
   longitude: number | null | undefined,
   address: string,
   place = "",
+  mapsUrl?: string | null,
 ) {
+  const stored = sanitizeMapsUrl(mapsUrl)
+  if (stored) return stored
   if (latitude != null && longitude != null) {
     return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
   }

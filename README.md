@@ -1,8 +1,8 @@
-# Saj
+# Salon listings
 
-Saj is a salon discovery site. People search by city, locality, and service. Salon owners sign up, write their own listing, and receive enquiries on WhatsApp. Customers don't pay. During the early partner program, owners don't pay either.
+This is a salon discovery site. People search by city, locality, and service. Salon owners sign up, write their own listing, and receive enquiries on WhatsApp. Customers don't pay. During the early partner program, owners don't pay either.
 
-The site name comes from `SITE_NAME` (default Saj). The public origin comes from `NEXT_PUBLIC_APP_URL`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
+The public name comes from `SITE_NAME`. Leave it unset to use the built-in default. The public origin comes from `NEXT_PUBLIC_APP_URL`. Pune is the first city in the database, not a hardcoded brand. Public URLs look like `/pune/baner` and `/pune/koregaon-park/saffron-atelier`.
 
 Deploy steps, cost, and DNS for notsooboring.com are in [DEPLOY.md](DEPLOY.md).
 
@@ -21,7 +21,7 @@ Node 22, and PostgreSQL 16.
 ```bash
 cp .env.example .env
 # Create the database, then set DATABASE_URL in .env.
-# Example: createdb saj && createuser saj
+# Example: createdb salon && createuser salon
 npm install
 npm run db:setup
 npm run dev
@@ -37,10 +37,10 @@ Created by the seed. Change `ADMIN_PASSWORD` before you seed anything you care a
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Salon owner (sample) | demo-owner@saj.local | saj-demo-owner |
-| Admin | admin@saj.local | saj-admin-dev |
+| Salon owner (sample) | demo-owner@example.local | demo-owner-dev |
+| Admin | admin@example.local | admin-dev-pass |
 
-The login page shows these only when `NODE_ENV` is not production. The seed refuses to run when `NODE_ENV=production`. Production boot creates the admin with `npm run db:admin` and does not load sample salons.
+The login page shows these only when `NODE_ENV` is not production. With `NODE_ENV=production`, `npm run db:seed` creates the admin, cities, and areas, and does not load sample salons. The Cloud Run container does not seed on boot. `npm run migrate:deploy` does.
 
 ### Sample listings
 
@@ -112,22 +112,23 @@ See `.env.example`. Production rejects the development secret, the development a
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | Postgres connection string. |
+| `DATABASE_URL` | Postgres connection the app uses at runtime. On Neon this is the pooled URL with `sslmode=require`. |
+| `DIRECT_URL` | Non-pooled URL for Prisma Migrate (`directUrl`). On Neon this is the direct host, also `sslmode=require`. Same value as `DATABASE_URL` when there is no pooler. |
 | `AUTH_SECRET` | Random string. 16+ characters in development, 32+ in production. Signs the session cookie. |
 | `NEXT_PUBLIC_APP_URL` | Public origin. Cookie is Secure when this is https. |
-| `SITE_NAME` | Brand in the header, titles, and email. Default Saj. |
+| `SITE_NAME` | Brand in the header, titles, and email. Leave unset to use the built-in default. |
 | `ALLOW_INDEXING` | `true` to allow indexing. Anything else, including unset, keeps the site out of search. |
 | `INDEX_MIN_SALONS` | Minimum approved non-sample salons for a city, area, or service page to be indexed. Default 8. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used the first time the seed or `npm run db:admin` creates the admin. |
 | `AUTO_APPROVE_LISTINGS` | If `true` before the setting exists, new submissions skip review. The admin screen overrides this afterwards. |
 | `SHOW_DEMO_LISTINGS` | Force sample listings on or off. |
 | `SMTP_*` | Sends magic-link email, claim confirmation codes, and contact-number change notes. Without it, development shows the link on screen. Production will not finish a claim, because the confirmation email cannot be sent. |
-| `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. |
+| `IMAGE_DRIVER=s3` plus `S3_*` | Store uploads on S3 or R2. `S3_PUBLIC_URL` is the base URL customers load. Required in production. Checksums are sent only when required, which is what Cloudflare R2 accepts. |
 | `ACTION_ALLOWED_ORIGINS` | Extra hosts allowed to POST server actions, if a proxy presents a different host. |
 
 ## Images
 
-`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloudflare R2, set `S3_ENDPOINT`, `S3_REGION=auto`, and a public bucket URL or custom domain in `S3_PUBLIC_URL`.
+`lib/storage.ts` is the only place that writes photos. The local driver saves to `public/uploads`. The S3 driver uses `@aws-sdk/client-s3` and is selected with `IMAGE_DRIVER=s3`. For Cloud Storage, set `S3_ENDPOINT=https://storage.googleapis.com`, `S3_FORCE_PATH_STYLE=true`, and `S3_PUBLIC_URL=https://storage.googleapis.com/<bucket>`. The client sets request and response checksums to `WHEN_REQUIRED`, which that XML API accepts. Each uploaded object is stored with a one-year immutable `Cache-Control`. The same settings work for R2 with its own endpoint and public URL.
 
 Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, checked by file signature. They are re-encoded with sharp: auto-rotated, stripped of EXIF and GPS, resized to at most 1600px wide, and saved as WebP.
 
@@ -137,8 +138,9 @@ Uploads are one photo at a time, limited to JPG, PNG, and WebP under 5 MB, check
 | --- | --- |
 | `npm run dev` | Dev server on port 3847 |
 | `npm run db:setup` | Apply migrations and seed |
+| `npm run migrate:deploy` | Apply migrations, then seed. In production the seed is the admin, cities, and areas only. Cloud Run runs this as a job. |
 | `npm run db:admin` | Create the admin user only. Safe in production. |
 | `npm run db:clear-demo` | Delete sample listings and sample users |
 | `sh scripts/pg-dump.sh` | Write a Postgres dump. See RESTORE.md. |
-| `npm run build` / `npm start` | Production build and server. `start` listens on `PORT` or 3847. |
+| `npm run build` / `npm start` | Production build and server. `start` listens on `PORT`, or 3847 when `PORT` is unset. Cloud Run sets `PORT`. |
 | `npm run lint` | ESLint |

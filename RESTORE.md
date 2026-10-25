@@ -1,4 +1,4 @@
-# Restore a Saj database
+# Restore a database
 
 Use this when the Postgres data is lost or a bad edit has to be undone. Nothing here creates a host account or deploys the app. Practice it once on a throwaway database before you need it.
 
@@ -8,7 +8,7 @@ Backups come from `scripts/pg-dump.sh`. A dump is a `pg_dump` custom-format file
 
 | Job | Command | Where the file goes |
 | --- | --- | --- |
-| Every day | `DATABASE_URL="…" sh scripts/pg-dump.sh` | `backups/saj-TIMESTAMP.dump` on the machine that ran it |
+| Every day | `DATABASE_URL="…" sh scripts/pg-dump.sh` | `backups/backup-TIMESTAMP.dump` on the machine that ran it |
 | Same command, when `BACKUP_S3_BUCKET` is set | uploads with the existing `S3_*` credentials | `s3://BACKUP_S3_BUCKET/daily/…` |
 | Sundays | the same script also copies that day's dump | `s3://BACKUP_S3_BUCKET/weekly/…` |
 
@@ -19,7 +19,7 @@ The web image installs `postgresql-client`, so a one-off shell on the web servic
 ## Restore
 
 1. Put the app in a state where nobody is writing. On Render, suspend the web service or scale it to zero. A restore while the app is running will be overwritten immediately.
-2. Download the dump you trust. For an off-site copy: `aws s3 cp s3://BACKUP_S3_BUCKET/daily/saj-TIMESTAMP.dump ./restore.dump --endpoint-url "$S3_ENDPOINT"`.
+2. Download the dump you trust. For an off-site copy: `aws s3 cp s3://BACKUP_S3_BUCKET/daily/backup-TIMESTAMP.dump ./restore.dump --endpoint-url "$S3_ENDPOINT"`.
 3. Restore into the target database. `--clean` drops objects that are in the dump before recreating them. This destroys the current data in that database.
 
    ```sh
@@ -27,8 +27,8 @@ The web image installs `postgresql-client`, so a one-off shell on the web servic
    ```
 
    If the database itself is gone, create an empty one first (`createdb` or the Render dashboard), then run the same command without `--clean`.
-4. Start the app. The container applies `prisma migrate deploy` before it listens. Migrations that are already in the dump are skipped. A migration added after the dump was taken is applied.
-5. Check a row you know. For example, the admin email and one live salon's name and phone. Open that salon's public page and confirm the photos still load from R2. If a photo 404s, the database row points at an object that is not in the bucket. That is not fixed by restoring Postgres again.
+4. Run `npm run migrate:deploy` before the web process listens. On Cloud Run, execute that job, then start the service. On Render, the Docker command in DEPLOY.md does this. Migrations that are already in the dump are skipped. A migration added after the dump was taken is applied. When `NODE_ENV=production` the seed in that command writes the admin, cities, and areas, and does not load sample salons.
+5. Check a row you know. For example, the admin email and one live salon's name and phone. Open that salon's public page and confirm the photos still load from the photo bucket (`S3_PUBLIC_URL`). If a photo 404s, the database row points at an object that is not in the bucket. That is not fixed by restoring Postgres again.
 6. Resume the web service. Sign in as the admin from `ADMIN_EMAIL`. The dump's password hash is the one that was current when you dumped, which may not match today's `ADMIN_PASSWORD`.
 
 ## If the dump is older than a contact-number change
@@ -41,10 +41,10 @@ Do this against a second database, never against the live one.
 
 ```sh
 DATABASE_URL="$LIVE_URL" sh scripts/pg-dump.sh
-createdb saj_restore_test
-pg_restore --no-owner --no-acl --dbname "$RESTORE_URL" backups/saj-TIMESTAMP.dump
+createdb salon_restore_test
+pg_restore --no-owner --no-acl --dbname "$RESTORE_URL" backups/backup-TIMESTAMP.dump
 psql "$RESTORE_URL" -c 'SELECT COUNT(*) FROM "Salon";'
-dropdb saj_restore_test
+dropdb salon_restore_test
 ```
 
 `SELECT COUNT(*)` should match the live database at the time of the dump. Then drop the test database.

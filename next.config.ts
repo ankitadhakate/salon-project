@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { IMMUTABLE_CACHE } from "./lib/cache-control";
 
 const extraOrigins = (process.env.ACTION_ALLOWED_ORIGINS || "")
   .split(",")
@@ -15,6 +16,14 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "6mb",
       allowedOrigins: extraOrigins,
     },
+  },
+  async headers() {
+    const immutable = [{ key: "Cache-Control", value: IMMUTABLE_CACHE }]
+    return [
+      { source: "/_next/static/:path*", headers: immutable },
+      { source: "/uploads/:path*", headers: immutable },
+      { source: "/demo/:path*", headers: immutable },
+    ]
   },
 };
 
